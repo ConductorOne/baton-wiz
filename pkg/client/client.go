@@ -149,19 +149,25 @@ func (c *Client) Authorize(
 	form.Set("grant_type", "client_credentials")
 
 	authUrl, err := url.Parse(authUrlPath)
+	if err != nil {
+		return fmt.Errorf("baton-wiz: error parsing auth url: %w", err)
+	}
+
 	request, err := c.baseHttpClient.NewRequest(ctx, http.MethodPost, authUrl, uhttp.WithFormBody(form.Encode()))
 	if err != nil {
 		return err
 	}
 
 	at := &oauth2.Token{}
-	_, err = c.baseHttpClient.Do(
+	resp, err := c.baseHttpClient.Do(
 		request,
 		uhttp.WithJSONResponse(&at),
 	)
 	if err != nil {
 		return fmt.Errorf("baton-wiz: error authorizing: %w", err)
 	}
+	defer resp.Body.Close()
+
 	c.BearerToken = at.AccessToken
 
 	return nil
@@ -204,13 +210,14 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 	}
 
 	res := &UsersWithAccessQueryResponse{}
-	_, err = c.baseHttpClient.Do(
+	resp, err := c.baseHttpClient.Do(
 		req,
 		uhttp.WithJSONResponse(&res),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources: %w", err)
 	}
+	defer resp.Body.Close()
 
 	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
@@ -263,10 +270,11 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	}
 
 	res := &ResourceResponse{}
-	_, err = c.baseHttpClient.Do(req, uhttp.WithJSONResponse(&res))
+	resp, err := c.baseHttpClient.Do(req, uhttp.WithJSONResponse(&res))
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources: %w", err)
 	}
+	defer resp.Body.Close()
 
 	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
@@ -319,13 +327,14 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 	}
 
 	res := &ResourcePermissions{}
-	_, err = c.baseHttpClient.Do(
+	resp, err := c.baseHttpClient.Do(
 		req,
 		uhttp.WithJSONResponse(&res),
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources permissions: %w", err)
 	}
+	defer resp.Body.Close()
 
 	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {

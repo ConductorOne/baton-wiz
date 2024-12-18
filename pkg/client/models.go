@@ -12,7 +12,7 @@ type PageInfo struct {
 
 type Emails []string
 
-// Emails can be a single string or string array
+// Emails can be a single string or string array.
 func (e *Emails) UnmarshalJSON(data []byte) error {
 	var singleEmail string
 	if err := json.Unmarshal(data, &singleEmail); err == nil {
