@@ -54,6 +54,11 @@ jobs:
       # BATON_ACCESS_TOKEN: 'secret_token'
       # The following parameters are passed to grant/revoke commands
       # Change these to the correct IDs for your test data
+      BATON_WIZ_CLIENT_ID: ${{ secrets.BATON_WIZ_CLIENT_ID }}
+      BATON_WIZ_CLIENT_SECRET: ${{ secrets.BATON_WIZ_CLIENT_SECRET }}
+      BATON_AUTH_URL: 'https://auth.app.wiz.io/oauth/token'
+      BATON_ENDPOINT_URL: 'https://api.us83.app.wiz.io/graphql'
+      BATON_RESOURCE_IDS: ${{ secrets.BATON_RESOURCE_IDS }}
       CONNECTOR_GRANT: 'grant:entitlement:group:1234:member:user:9876'
       CONNECTOR_ENTITLEMENT: 'entitlement:group:1234:member'
       CONNECTOR_PRINCIPAL: 'user:9876'
