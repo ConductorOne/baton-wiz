@@ -56,7 +56,6 @@ fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
   id
   name
   type
-  properties
 }`
 
 const resourcePermissionQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
@@ -73,9 +72,6 @@ const resourcePermissionQuery = `query CloudEntitlementsTable($after: String, $f
 
 fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
   grantedEntity {
-    ...EntityEffectiveAccessGraphChartEntity
-  }
-  accessibleResource {
     ...EntityEffectiveAccessGraphChartEntity
   }
   accessTypes
