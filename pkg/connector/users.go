@@ -6,9 +6,15 @@ import (
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
 	"github.com/conductorone/baton-sdk/pkg/pagination"
+	rs "github.com/conductorone/baton-sdk/pkg/types/resource"
+	"github.com/conductorone/baton-wiz/pkg/client"
 )
 
-type userBuilder struct{}
+const userTypeServiceAccount = "SERVICE_ACCOUNT"
+
+type userBuilder struct {
+	client *client.Client
+}
 
 func (o *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 	return userResourceType
@@ -17,7 +23,66 @@ func (o *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
 // List returns all the users from the database as resource objects.
 // Users include a UserTrait because they are the 'shape' of a standard user.
 func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId, pToken *pagination.Token) ([]*v2.Resource, string, annotations.Annotations, error) {
-	return nil, "", nil, nil
+	var rv []*v2.Resource
+	usersWithAccess, nextPageToken, err := o.client.ListUsersWithAccessToResources(ctx, pToken)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	for _, n := range usersWithAccess.Data.EntityEffectiveAccessEntries.Nodes {
+		user := n.GrantedEntity
+
+		primaryEmail := user.Properties.PrimaryEmail
+		if primaryEmail == "" {
+			primaryEmail = user.Properties.Email
+		}
+
+		firstName, lastName := rs.SplitFullName(user.Properties.Name)
+		profile := map[string]interface{}{
+			"login":      primaryEmail,
+			"user_id":    user.Id,
+			"first_name": firstName,
+			"last_name":  lastName,
+		}
+
+		userTraitOptions := []rs.UserTraitOption{
+			rs.WithEmail(primaryEmail, true),
+			rs.WithUserProfile(profile),
+		}
+
+		if user.Properties.Enabled != nil {
+			if *user.Properties.Enabled {
+				userTraitOptions = append(userTraitOptions, rs.WithStatus(v2.UserTrait_Status_STATUS_ENABLED))
+			} else {
+				userTraitOptions = append(userTraitOptions, rs.WithStatus(v2.UserTrait_Status_STATUS_DISABLED))
+			}
+		}
+
+		if user.Type == userTypeServiceAccount {
+			userTraitOptions = append(userTraitOptions, rs.WithAccountType(v2.UserTrait_ACCOUNT_TYPE_SERVICE))
+		}
+
+		for _, email := range user.Properties.Emails {
+			if email == primaryEmail {
+				continue
+			}
+			userTraitOptions = append(userTraitOptions, rs.WithEmail(email, false))
+		}
+
+		resource, err := rs.NewUserResource(
+			user.Properties.Name,
+			userResourceType,
+			user.Id,
+			userTraitOptions,
+		)
+		if err != nil {
+			return nil, "", nil, err
+		}
+
+		rv = append(rv, resource)
+	}
+
+	return rv, nextPageToken, nil, nil
 }
 
 // Entitlements always returns an empty slice for users.
@@ -30,6 +95,6 @@ func (o *userBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken 
 	return nil, "", nil, nil
 }
 
-func newUserBuilder() *userBuilder {
-	return &userBuilder{}
+func newUserBuilder(client *client.Client) *userBuilder {
+	return &userBuilder{client: client}
 }
