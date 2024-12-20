@@ -31,7 +31,7 @@ func (o *resourceBuilder) List(ctx context.Context, parentResourceID *v2.Resourc
 
 	for _, n := range resources.Data.GraphSearch.Nodes {
 		for _, accessibleResource := range n.Entities {
-			displayName := accessibleResource.Name + " " + strings.ToLower(accessibleResource.Type)
+			displayName := fmt.Sprintf("%s %s", accessibleResource.Name, strings.ToLower(accessibleResource.Type))
 			resource, err := rs.NewResource(
 				displayName,
 				wizQueryResourceType,
