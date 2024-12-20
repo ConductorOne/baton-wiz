@@ -54,7 +54,7 @@ func (d *Connector) Metadata(ctx context.Context) (*v2.ConnectorMetadata, error)
 func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, error) {
 	err := d.Client.Authorize(ctx, d.Config.AuthURL, d.Config.ClientID, d.Config.ClientSecret, d.Config.Audience)
 	if err != nil {
-		return nil, fmt.Errorf("baton-wiz: error authorizing: %w", err)
+		return nil, fmt.Errorf("wiz-connector: error authorizing: %w", err)
 	}
 	return nil, nil
 }
@@ -64,7 +64,7 @@ func New(ctx context.Context, config *Config) (*Connector, error) {
 	l := ctxzap.Extract(ctx)
 	cli, err := client.New(ctx, config.ClientID, config.ClientSecret, config.Audience, config.AuthURL, config.EndpointURL, config.ResourceIDs)
 	if err != nil {
-		l.Error("baton-wiz: failed to read token response", zap.Error(err))
+		l.Error("wiz-connector: failed to read token response", zap.Error(err))
 		return nil, err
 	}
 

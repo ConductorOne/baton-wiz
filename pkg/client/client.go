@@ -101,7 +101,7 @@ func New(
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
 	if err != nil {
-		l.Error("baton-wiz: failed to create http client", zap.Error(err))
+		l.Error("wiz-connector: failed to create http client", zap.Error(err))
 		return nil, err
 	}
 
@@ -144,7 +144,7 @@ func (c *Client) Authorize(
 
 	authUrl, err := url.Parse(authUrlPath)
 	if err != nil {
-		return fmt.Errorf("baton-wiz: error parsing auth url: %w", err)
+		return fmt.Errorf("wiz-connector: error parsing auth url: %w", err)
 	}
 
 	request, err := c.baseHttpClient.NewRequest(ctx, http.MethodPost, authUrl, uhttp.WithFormBody(form.Encode()))
@@ -158,7 +158,7 @@ func (c *Client) Authorize(
 		uhttp.WithJSONResponse(&at),
 	)
 	if err != nil {
-		return fmt.Errorf("baton-wiz: error authorizing: %w", err)
+		return fmt.Errorf("wiz-connector: error authorizing: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -169,6 +169,9 @@ func (c *Client) Authorize(
 
 func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pagination.Token) (*UsersWithAccessQueryResponse, string, error) {
 	bag, page, err := parseUserPageToken(pToken.Token, c.resourceIDs)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: error parsing user page token: %w", err)
+	}
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
@@ -333,7 +336,7 @@ func WithBearerToken(token string) uhttp.RequestOption {
 	return uhttp.WithHeader("Authorization", fmt.Sprintf("Bearer %s", token))
 }
 
-func parseUserPageToken(token string, resourceIds []string) (*pagination.Bag, string, error) {
+func parseUserPageToken(token string, resourceIDs []string) (*pagination.Bag, string, error) {
 	b := &pagination.Bag{}
 	err := b.Unmarshal(token)
 	if err != nil {
@@ -341,7 +344,7 @@ func parseUserPageToken(token string, resourceIds []string) (*pagination.Bag, st
 	}
 
 	if b.Current() == nil {
-		for _, resourceID := range resourceIds {
+		for _, resourceID := range resourceIDs {
 			b.Push(pagination.PageState{
 				ResourceID: resourceID,
 				Token:      DefaultEndCursor,

@@ -59,12 +59,12 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 		ResourceIDs:  resourceIDs,
 	})
 	if err != nil {
-		l.Error("baton-wiz: error creating connector", zap.Error(err))
+		l.Error("wiz-connector: error creating connector", zap.Error(err))
 		return nil, err
 	}
 	connector, err := connectorbuilder.NewConnector(ctx, cb)
 	if err != nil {
-		l.Error("baton-wiz: error creating connector", zap.Error(err))
+		l.Error("wiz-connector: error creating connector", zap.Error(err))
 		return nil, err
 	}
 	return connector, nil
