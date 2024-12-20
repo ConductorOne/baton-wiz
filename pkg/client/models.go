@@ -49,22 +49,7 @@ type UsersWithAccessQueryResponse struct {
 	Data struct {
 		EntityEffectiveAccessEntries struct {
 			Nodes []struct {
-				GrantedEntity GrantedEntity `json:"grantedEntity"`
-			} `json:"nodes"`
-			PageInfo PageInfo `json:"pageInfo"`
-		} `json:"entityEffectiveAccessEntries"`
-	} `json:"data"`
-}
-
-type ResourceResponse struct {
-	Data struct {
-		EntityEffectiveAccessEntries struct {
-			Nodes []struct {
-				AccessibleResource struct {
-					Id   string `json:"id"`
-					Name string `json:"name"`
-					Type string `json:"type"`
-				} `json:"accessibleResource"`
+				GrantedEntity *GrantedEntity `json:"grantedEntity"`
 			} `json:"nodes"`
 			PageInfo PageInfo `json:"pageInfo"`
 		} `json:"entityEffectiveAccessEntries"`
@@ -80,5 +65,20 @@ type ResourcePermissions struct {
 			} `json:"nodes"`
 			PageInfo PageInfo `json:"pageInfo"`
 		} `json:"entityEffectiveAccessEntries"`
+	} `json:"data"`
+}
+
+type ResourceResponse struct {
+	Data struct {
+		GraphSearch struct {
+			Nodes []struct {
+				Entities []struct {
+					Id   string `json:"id"`
+					Name string `json:"name"`
+					Type string `json:"type"`
+				} `json:"entities"`
+			} `json:"nodes"`
+			PageInfo PageInfo `json:"pageInfo"`
+		} `json:"graphSearch"`
 	} `json:"data"`
 }

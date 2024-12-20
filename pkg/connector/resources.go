@@ -28,20 +28,22 @@ func (o *resourceBuilder) List(ctx context.Context, parentResourceID *v2.Resourc
 	if err != nil {
 		return nil, "", nil, err
 	}
-	for _, n := range resources.Data.EntityEffectiveAccessEntries.Nodes {
-		accessibleResource := n.AccessibleResource
-		// TODO(lauren) should we contain type in display name?
-		displayName := accessibleResource.Name + " " + strings.ToLower(accessibleResource.Type)
-		resource, err := rs.NewResource(
-			displayName,
-			wizQueryResourceType,
-			accessibleResource.Id,
-		)
-		if err != nil {
-			return nil, "", nil, err
+
+	for _, n := range resources.Data.GraphSearch.Nodes {
+		for _, accessibleResource := range n.Entities {
+			displayName := accessibleResource.Name + " " + strings.ToLower(accessibleResource.Type)
+			resource, err := rs.NewResource(
+				displayName,
+				wizQueryResourceType,
+				accessibleResource.Id,
+			)
+			if err != nil {
+				return nil, "", nil, err
+			}
+			rv = append(rv, resource)
 		}
-		rv = append(rv, resource)
 	}
+
 	return rv, nextPageToken, nil, nil
 }
 

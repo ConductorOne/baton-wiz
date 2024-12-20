@@ -16,46 +16,39 @@ import (
 const userQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
   entityEffectiveAccessEntries(after: $after, first: $first, filterBy: $filterBy) {
     nodes {
-      ...EntityEffectiveAccessDetails
+       grantedEntity {
+        id
+        name
+        type
+        properties
+      }
     }
     pageInfo {
       hasNextPage
       endCursor
     }
   }
-}
-fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
- grantedEntity {
-    ...EntityEffectiveAccessGraphChartEntity
-  }
-}
-fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
-  id
-  name
-  type
-  properties
 }`
 
-const resourceQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
-  entityEffectiveAccessEntries(after: $after, first: $first, filterBy: $filterBy) {
+const resourceQuery = `query GraphSearch($query: GraphEntityQueryInput, $projectId: String!, $first: Int, $after: String) {
+  graphSearch(
+    query: $query
+    projectId: $projectId
+    first: $first
+    after: $after
+  ) {
     nodes {
-      ...EntityEffectiveAccessDetails
+      entities {
+        id
+        name
+        type
+      }
     }
     pageInfo {
-      hasNextPage
       endCursor
+      hasNextPage
     }
   }
-}
-fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
- accessibleResource {
-    ...EntityEffectiveAccessGraphChartEntity
-  }
-}
-fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
-  id
-  name
-  type
 }`
 
 const resourcePermissionQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
@@ -84,7 +77,8 @@ fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
   properties
 }`
 
-const DefaultPageSize = 1000
+const DefaultPageSize = 500
+const DefaultEndCursor = "{{endCursor}}"
 
 var grantedEntityTypeFilter = []string{"IDENTITY", "USER_ACCOUNT", "SERVICE_ACCOUNT"}
 
@@ -174,10 +168,7 @@ func (c *Client) Authorize(
 }
 
 func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pagination.Token) (*UsersWithAccessQueryResponse, string, error) {
-	bag, page, err := parsePageToken(pToken.Token)
-	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: failed to parse page token: %w", err)
-	}
+	bag, page, err := parseUserPageToken(pToken.Token, c.resourceIDs)
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
@@ -188,7 +179,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
-					"equals": c.resourceIDs,
+					"equals": bag.ResourceID(),
 				},
 			},
 		},
@@ -225,30 +216,33 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 		if err != nil {
 			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 		}
-		nextPageToken, err = bag.Marshal()
+	} else {
+		err = bag.Next("")
 		if err != nil {
-			return nil, "", err
+			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 		}
 	}
+
+	nextPageToken, err = bag.Marshal()
+	if err != nil {
+		return nil, "", err
+	}
+
 	return res, nextPageToken, nil
 }
 
 func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*ResourceResponse, string, error) {
-	bag, page, err := parsePageToken(pToken.Token)
-	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: failed to parse page token: %w", err)
-	}
+	page := getEndCursor(pToken.Token)
 
 	variables := map[string]interface{}{
-		"first": DefaultPageSize,
-		"after": page,
-		"filterBy": map[string]interface{}{
-			"grantedEntityType": map[string]interface{}{
-				"equals": grantedEntityTypeFilter,
-			},
-			"resource": map[string]interface{}{
-				"id": map[string]interface{}{
-					"equals": c.resourceIDs,
+		"first":     DefaultPageSize,
+		"after":     page,
+		"projectId": "*",
+		"query": map[string]interface{}{
+			"type": []string{"ANY"}, // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+			"where": map[string]interface{}{
+				"_vertexID": map[string]interface{}{
+					"EQUALS": c.resourceIDs,
 				},
 			},
 		},
@@ -277,25 +271,16 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	defer resp.Body.Close()
 
 	var nextPageToken string
-	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		err = bag.Next(res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor)
-		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
-		}
-		nextPageToken, err = bag.Marshal()
-		if err != nil {
-			return nil, "", err
-		}
+	if res.Data.GraphSearch.PageInfo.HasNextPage {
+		nextPageToken = res.Data.GraphSearch.PageInfo.EndCursor
 	}
 
 	return res, nextPageToken, nil
 }
 
 func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
-	bag, page, err := parsePageToken(pToken.Token)
-	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: failed to parse page token: %w", err)
-	}
+	page := getEndCursor(pToken.Token)
+
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
 		"after": page,
@@ -338,14 +323,7 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 
 	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		err = bag.Next(res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor)
-		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
-		}
-		nextPageToken, err = bag.Marshal()
-		if err != nil {
-			return nil, "", err
-		}
+		nextPageToken = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
 	}
 
 	return res, nextPageToken, nil
@@ -355,18 +333,20 @@ func WithBearerToken(token string) uhttp.RequestOption {
 	return uhttp.WithHeader("Authorization", fmt.Sprintf("Bearer %s", token))
 }
 
-func parsePageToken(token string) (*pagination.Bag, string, error) {
+func parseUserPageToken(token string, resourceIds []string) (*pagination.Bag, string, error) {
 	b := &pagination.Bag{}
 	err := b.Unmarshal(token)
 	if err != nil {
 		return nil, "", err
 	}
 
-	pageToken := ConvertPageToken(token)
 	if b.Current() == nil {
-		b.Push(pagination.PageState{
-			ResourceID: pageToken,
-		})
+		for _, resourceID := range resourceIds {
+			b.Push(pagination.PageState{
+				ResourceID: resourceID,
+				Token:      DefaultEndCursor,
+			})
+		}
 	}
 
 	page := b.PageToken()
@@ -374,9 +354,9 @@ func parsePageToken(token string) (*pagination.Bag, string, error) {
 	return b, page, nil
 }
 
-func ConvertPageToken(token string) string {
+func getEndCursor(token string) string {
 	if token == "" {
-		return "{{endCursor}}"
+		return DefaultEndCursor
 	}
 	return token
 }

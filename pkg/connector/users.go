@@ -31,13 +31,12 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 
 	for _, n := range usersWithAccess.Data.EntityEffectiveAccessEntries.Nodes {
 		user := n.GrantedEntity
-
 		primaryEmail := user.Properties.PrimaryEmail
 		if primaryEmail == "" {
 			primaryEmail = user.Properties.Email
 		}
 
-		firstName, lastName := rs.SplitFullName(user.Properties.Name)
+		firstName, lastName := rs.SplitFullName(user.Name)
 		profile := map[string]interface{}{
 			"login":      primaryEmail,
 			"user_id":    user.Id,
@@ -63,14 +62,13 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 		}
 
 		for _, email := range user.Properties.Emails {
-			if email == primaryEmail {
-				continue
+			if email != primaryEmail {
+				userTraitOptions = append(userTraitOptions, rs.WithEmail(email, false))
 			}
-			userTraitOptions = append(userTraitOptions, rs.WithEmail(email, false))
 		}
 
 		resource, err := rs.NewUserResource(
-			user.Properties.Name,
+			user.Name,
 			userResourceType,
 			user.Id,
 			userTraitOptions,
