@@ -2,26 +2,14 @@ package main
 
 import (
 	"github.com/conductorone/baton-sdk/pkg/field"
-	"github.com/spf13/viper"
 )
 
 var (
-	// ConfigurationFields defines the external configuration required for the
-	// connector to run. Note: these fields can be marked as optional or
-	// required.
-	ConfigurationFields = []field.SchemaField{}
-
-	// FieldRelationships defines relationships between the fields listed in
-	// ConfigurationFields that can be automatically validated. For example, a
-	// username and password can be required together, or an access token can be
-	// marked as mutually exclusive from the username password pair.
-	FieldRelationships = []field.SchemaFieldRelationship{}
+	clientIDField       = field.StringField("wiz-client-id", field.WithRequired(true), field.WithDescription("The client ID used to authenticate with Wiz"))
+	clientSecretField   = field.StringField("wiz-client-secret", field.WithRequired(true), field.WithDescription("The client secret used to authenticate with Wiz"))
+	endpointURL         = field.StringField("endpoint-url", field.WithRequired(true), field.WithDescription("The endpoint url used to authenticate with Wiz"))
+	authURL             = field.StringField("auth-url", field.WithRequired(true), field.WithDescription("The auth url used to authenticate with Wiz"))
+	audience            = field.StringField("audience", field.WithDefaultValue("wiz-api"), field.WithDescription("The audience used to authenticate with Wiz"))
+	resourceIDs         = field.StringSliceField("resource-ids", field.WithRequired(true), field.WithDescription("The resource ids to sync"))
+	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs}
 )
-
-// ValidateConfig is run after the configuration is loaded, and should return an
-// error if it isn't valid. Implementing this function is optional, it only
-// needs to perform extra validations that cannot be encoded with configuration
-// parameters.
-func ValidateConfig(v *viper.Viper) error {
-	return nil
-}
