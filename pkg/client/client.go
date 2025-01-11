@@ -202,7 +202,6 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 					Token:          DefaultEndCursor,
 					ResourceTypeID: ListUsersResourceTypeResourceID,
 				})
-
 			}
 		}
 		resourceNextPageMarshal, err := bag.Marshal()
