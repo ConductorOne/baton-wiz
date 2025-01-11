@@ -24,7 +24,7 @@ func main() {
 		ctx,
 		"baton-wiz",
 		getConnector,
-		field.NewConfiguration(configurationFields),
+		field.NewConfiguration(configurationFields, configRelations...),
 	)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -49,6 +49,7 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 	authURL := v.GetString(authURL.FieldName)
 	audience := v.GetString(audience.FieldName)
 	resourceIDs := v.GetStringSlice(resourceIDs.FieldName)
+	resourceTags := v.GetStringSlice(tags.FieldName)
 
 	cb, err := connector.New(ctx, &connector.Config{
 		ClientID:     clientID,
@@ -57,6 +58,7 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 		AuthURL:      authURL,
 		Audience:     audience,
 		ResourceIDs:  resourceIDs,
+		ResourceTags: resourceTags,
 	})
 	if err != nil {
 		l.Error("wiz-connector: error creating connector", zap.Error(err))
