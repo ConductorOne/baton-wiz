@@ -10,6 +10,12 @@ var (
 	endpointURL         = field.StringField("endpoint-url", field.WithRequired(true), field.WithDescription("The endpoint url used to authenticate with Wiz"))
 	authURL             = field.StringField("auth-url", field.WithRequired(true), field.WithDescription("The auth url used to authenticate with Wiz"))
 	audience            = field.StringField("audience", field.WithDefaultValue("wiz-api"), field.WithDescription("The audience used to authenticate with Wiz"))
-	resourceIDs         = field.StringSliceField("resource-ids", field.WithRequired(true), field.WithDescription("The resource ids to sync"))
-	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs}
+	resourceIDs         = field.StringSliceField("resource-ids", field.WithDescription("The resource ids to sync"))
+	tags                = field.StringSliceField("tags", field.WithDescription("The tags on resources to sync"))
+	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags}
 )
+
+var configRelations = []field.SchemaFieldRelationship{
+	field.FieldsAtLeastOneUsed(resourceIDs, tags),
+	field.FieldsMutuallyExclusive(resourceIDs, tags),
+}

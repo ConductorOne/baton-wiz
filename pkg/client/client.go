@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
+
+const ListUsersResourceTypeResourceID = "resourceID"
+const ListUsersResourceTypeResourceTag = "resourceTag"
 
 const userQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
   entityEffectiveAccessEntries(after: $after, first: $first, filterBy: $filterBy) {
@@ -87,6 +91,7 @@ type Client struct {
 	BearerToken    string
 	BaseUrl        *url.URL
 	resourceIDs    []string
+	resourceTags   []string
 }
 
 func New(
@@ -97,6 +102,7 @@ func New(
 	authUrl string,
 	endpointUrlPath string,
 	resourceIDs []string,
+	resourceTags []string,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -119,6 +125,7 @@ func New(
 		baseHttpClient: wrapper,
 		BaseUrl:        endpointUrl,
 		resourceIDs:    resourceIDs,
+		resourceTags:   resourceTags,
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -173,81 +180,129 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 		return nil, "", fmt.Errorf("wiz-connector: error parsing user page token: %w", err)
 	}
 
-	variables := map[string]interface{}{
-		"first": DefaultPageSize,
-		"after": page,
-		"filterBy": map[string]interface{}{
-			"grantedEntityType": map[string]interface{}{
-				"equals": grantedEntityTypeFilter,
-			},
-			"resource": map[string]interface{}{
-				"id": map[string]interface{}{
-					"equals": bag.ResourceID(),
+	switch bag.ResourceTypeID() {
+	case ListUsersResourceTypeResourceTag:
+		// Fetch the resources with the tags and push each resource id to the pagination bag so we can get
+		// the users that have access per resource
+		resourceToken := &pagination.Token{Token: page}
+		resources, resourceNextPage, err := c.ListResources(ctx, resourceToken)
+		if err != nil {
+			return nil, "", err
+		}
+
+		err = bag.Next(resourceNextPage)
+		if err != nil {
+			return nil, "", err
+		}
+
+		for _, n := range resources.Data.GraphSearch.Nodes {
+			for _, accessibleResource := range n.Entities {
+				bag.Push(pagination.PageState{
+					ResourceID:     accessibleResource.Id,
+					Token:          DefaultEndCursor,
+					ResourceTypeID: ListUsersResourceTypeResourceID,
+				})
+			}
+		}
+		resourceNextPageMarshal, err := bag.Marshal()
+		if err != nil {
+			return nil, "", err
+		}
+		return &UsersWithAccessQueryResponse{}, resourceNextPageMarshal, nil
+	case ListUsersResourceTypeResourceID:
+		variables := map[string]interface{}{
+			"first": DefaultPageSize,
+			"after": page,
+			"filterBy": map[string]interface{}{
+				"grantedEntityType": map[string]interface{}{
+					"equals": grantedEntityTypeFilter,
+				},
+				"resource": map[string]interface{}{
+					"id": map[string]interface{}{
+						"equals": bag.ResourceID(),
+					},
 				},
 			},
-		},
-	}
-	payload := map[string]interface{}{
-		"query":     userQuery,
-		"variables": variables,
-	}
-
-	options := []uhttp.RequestOption{
-		uhttp.WithAcceptJSONHeader(),
-		uhttp.WithJSONBody(payload),
-		WithBearerToken(c.BearerToken),
-	}
-
-	req, err := c.baseHttpClient.NewRequest(ctx, http.MethodPost, c.BaseUrl, options...)
-	if err != nil {
-		return nil, "", err
-	}
-
-	res := &UsersWithAccessQueryResponse{}
-	resp, err := c.baseHttpClient.Do(
-		req,
-		uhttp.WithJSONResponse(&res),
-	)
-	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: failed to list resources: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var nextPageToken string
-	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		err = bag.Next(res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor)
-		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 		}
-	} else {
-		err = bag.Next("")
-		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+
+		payload := map[string]interface{}{
+			"query":     userQuery,
+			"variables": variables,
 		}
-	}
 
-	nextPageToken, err = bag.Marshal()
-	if err != nil {
-		return nil, "", err
-	}
+		options := []uhttp.RequestOption{
+			uhttp.WithAcceptJSONHeader(),
+			uhttp.WithJSONBody(payload),
+			WithBearerToken(c.BearerToken),
+		}
 
-	return res, nextPageToken, nil
+		req, err := c.baseHttpClient.NewRequest(ctx, http.MethodPost, c.BaseUrl, options...)
+		if err != nil {
+			return nil, "", err
+		}
+
+		res := &UsersWithAccessQueryResponse{}
+		resp, err := c.baseHttpClient.Do(
+			req,
+			uhttp.WithJSONResponse(&res),
+		)
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: failed to list users with access to resources: %w", err)
+		}
+		defer resp.Body.Close()
+
+		var nextPageToken string
+		if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
+			err = bag.Next(res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor)
+			if err != nil {
+				return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+			}
+		} else {
+			err = bag.Next("")
+			if err != nil {
+				return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+			}
+		}
+
+		nextPageToken, err = bag.Marshal()
+		if err != nil {
+			return nil, "", err
+		}
+
+		return res, nextPageToken, nil
+	}
+	return nil, "", errors.New("wiz-connector: failed to list users: invalid pagination resource type")
 }
 
 func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*ResourceResponse, string, error) {
 	page := getEndCursor(pToken.Token)
+
+	whereClause := make(map[string]interface{}, 0)
+	if len(c.resourceIDs) != 0 {
+		whereClause["_vertexID"] = map[string]interface{}{
+			"EQUALS": c.resourceIDs,
+		}
+	}
+
+	if len(c.resourceTags) != 0 {
+		tagKeyValSlice := make([]map[string]interface{}, 0)
+		for _, tag := range c.resourceTags {
+			tagKeyValSlice = append(tagKeyValSlice, map[string]interface{}{
+				"key": "Name", "value": tag,
+			})
+		}
+		whereClause["tags"] = map[string]interface{}{
+			"TAG_CONTAINS_ANY": tagKeyValSlice,
+		}
+	}
 
 	variables := map[string]interface{}{
 		"first":     DefaultPageSize,
 		"after":     page,
 		"projectId": "*",
 		"query": map[string]interface{}{
-			"type": []string{"ANY"}, // TODO(lauren) might be able to filter with CLOUD_RESOURCE
-			"where": map[string]interface{}{
-				"_vertexID": map[string]interface{}{
-					"EQUALS": c.resourceIDs,
-				},
-			},
+			"type":  []string{"ANY"}, // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+			"where": whereClause,
 		},
 	}
 	payload := map[string]interface{}{
@@ -344,10 +399,18 @@ func parseUserPageToken(token string, resourceIDs []string) (*pagination.Bag, st
 	}
 
 	if b.Current() == nil {
-		for _, resourceID := range resourceIDs {
+		if len(resourceIDs) != 0 {
+			for _, resourceID := range resourceIDs {
+				b.Push(pagination.PageState{
+					ResourceID:     resourceID,
+					Token:          DefaultEndCursor,
+					ResourceTypeID: ListUsersResourceTypeResourceID,
+				})
+			}
+		} else {
 			b.Push(pagination.PageState{
-				ResourceID: resourceID,
-				Token:      DefaultEndCursor,
+				Token:          DefaultEndCursor,
+				ResourceTypeID: ListUsersResourceTypeResourceTag,
 			})
 		}
 	}
