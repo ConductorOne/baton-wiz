@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
@@ -81,7 +82,7 @@ fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
   properties
 }`
 
-const DefaultPageSize = 500
+const DefaultPageSize = 100
 const DefaultEndCursor = "{{endCursor}}"
 
 var grantedEntityTypeFilter = []string{"IDENTITY", "USER_ACCOUNT", "SERVICE_ACCOUNT"}
@@ -287,8 +288,9 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	if len(c.resourceTags) != 0 {
 		tagKeyValSlice := make([]map[string]interface{}, 0)
 		for _, tag := range c.resourceTags {
+			keyValPair := strings.Split(tag, ":")
 			tagKeyValSlice = append(tagKeyValSlice, map[string]interface{}{
-				"key": "Name", "value": tag,
+				"key": keyValPair[0], "value": keyValPair[1],
 			})
 		}
 		whereClause["tags"] = map[string]interface{}{
