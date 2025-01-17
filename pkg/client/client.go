@@ -82,7 +82,7 @@ fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
   properties
 }`
 
-const DefaultPageSize = 100
+const DefaultPageSize = 500
 const DefaultEndCursor = "{{endCursor}}"
 
 var grantedEntityTypeFilter = []string{"IDENTITY", "USER_ACCOUNT", "SERVICE_ACCOUNT"}
