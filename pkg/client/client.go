@@ -72,7 +72,7 @@ fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
   grantedEntity {
     ...EntityEffectiveAccessGraphChartEntity
   }
-  accessTypes
+  permissions
 }
 
 fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
@@ -93,6 +93,7 @@ type Client struct {
 	BaseUrl        *url.URL
 	resourceIDs    []string
 	resourceTags   []string
+	resourceTypes  []string
 }
 
 func New(
@@ -104,6 +105,7 @@ func New(
 	endpointUrlPath string,
 	resourceIDs []string,
 	resourceTags []string,
+	resourceTypes []string,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -127,6 +129,7 @@ func New(
 		BaseUrl:        endpointUrl,
 		resourceIDs:    resourceIDs,
 		resourceTags:   resourceTags,
+		resourceTypes:  resourceTypes,
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -196,8 +199,14 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			return nil, "", err
 		}
 
+		dupeTrack := make(map[string]bool)
+
 		for _, n := range resources.Data.GraphSearch.Nodes {
 			for _, accessibleResource := range n.Entities {
+				if _, ok := dupeTrack[accessibleResource.Id]; ok {
+					continue
+				}
+				dupeTrack[accessibleResource.Id] = true
 				bag.Push(pagination.PageState{
 					ResourceID:     accessibleResource.Id,
 					Token:          DefaultEndCursor,
@@ -298,12 +307,17 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 		}
 	}
 
+	resourceTypes := c.resourceTypes
+	if len(resourceTypes) == 0 {
+		resourceTypes = []string{"ANY"} // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+	}
+
 	variables := map[string]interface{}{
 		"first":     DefaultPageSize,
 		"after":     page,
 		"projectId": "*",
 		"query": map[string]interface{}{
-			"type":  []string{"ANY"}, // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+			"type":  resourceTypes,
 			"where": whereClause,
 		},
 	}

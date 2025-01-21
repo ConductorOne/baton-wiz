@@ -61,7 +61,7 @@ type ResourcePermissions struct {
 		EntityEffectiveAccessEntries struct {
 			Nodes []struct {
 				GrantedEntity *GrantedEntity `json:"grantedEntity"`
-				AccessTypes   []string       `json:"accessTypes"`
+				Permissions   []string       `json:"permissions"`
 			} `json:"nodes"`
 			PageInfo PageInfo `json:"pageInfo"`
 		} `json:"entityEffectiveAccessEntries"`

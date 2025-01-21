@@ -14,13 +14,14 @@ import (
 )
 
 type Config struct {
-	ClientID     string
-	ClientSecret string
-	EndpointURL  string
-	AuthURL      string
-	Audience     string
-	ResourceIDs  []string
-	ResourceTags []string
+	ClientID      string
+	ClientSecret  string
+	EndpointURL   string
+	AuthURL       string
+	Audience      string
+	ResourceIDs   []string
+	ResourceTags  []string
+	ResourceTypes []string
 }
 
 type Connector struct {
@@ -63,7 +64,16 @@ func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, erro
 // New returns a new instance of the connector.
 func New(ctx context.Context, config *Config) (*Connector, error) {
 	l := ctxzap.Extract(ctx)
-	cli, err := client.New(ctx, config.ClientID, config.ClientSecret, config.Audience, config.AuthURL, config.EndpointURL, config.ResourceIDs, config.ResourceTags)
+	cli, err := client.New(ctx,
+		config.ClientID,
+		config.ClientSecret,
+		config.Audience,
+		config.AuthURL,
+		config.EndpointURL,
+		config.ResourceIDs,
+		config.ResourceTags,
+		config.ResourceTypes,
+	)
 	if err != nil {
 		l.Error("wiz-connector: failed to read token response", zap.Error(err))
 		return nil, err

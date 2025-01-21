@@ -55,8 +55,8 @@ func (o *resourceBuilder) Entitlements(ctx context.Context, resource *v2.Resourc
 	}
 	nodes := resourcePermissions.Data.EntityEffectiveAccessEntries.Nodes
 	for _, n := range nodes {
-		for _, at := range n.AccessTypes {
-			ent := o.resourceEntitlement(resource, at)
+		for _, p := range n.Permissions {
+			ent := o.resourceEntitlement(resource, p)
 			rv = append(rv, ent)
 		}
 	}
@@ -81,8 +81,8 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 			Resource:     n.GrantedEntity.Id,
 		}
 
-		for _, at := range n.AccessTypes {
-			rv = append(rv, sdkGrant.NewGrant(resource, at, principal))
+		for _, p := range n.Permissions {
+			rv = append(rv, sdkGrant.NewGrant(resource, p, principal))
 		}
 	}
 	return rv, nextPageToken, nil, nil
