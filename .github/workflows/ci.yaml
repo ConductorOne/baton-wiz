@@ -58,8 +58,8 @@ jobs:
       BATON_WIZ_CLIENT_SECRET: ${{ secrets.BATON_WIZ_CLIENT_SECRET }}
       BATON_AUTH_URL: 'https://auth.app.wiz.io/oauth/token'
       BATON_ENDPOINT_URL: 'https://api.us83.app.wiz.io/graphql'
-      BATON_RESOURCE_IDS: ${{ secrets.BATON_RESOURCE_IDS }}
-      CONNECTOR_ENTITLEMENT: 'wiz_query_resource_type:53cd6069-47c2-5b03-9412-7373cd69008f:READ'
+      BATON_TAGS: ${{ secrets.BATON_TAGS }}
+      CONNECTOR_ENTITLEMENT: 'wiz_query_resource_type:911d5b8b-1a17-5af0-b1b6-6cca33432c22:s3:*'
       CONNECTOR_PRINCIPAL: 'd1ade4d7-e5c6-5754-9743-766a441d0c83'
     steps:
       - name: Install Go

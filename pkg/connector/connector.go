@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
@@ -64,6 +65,18 @@ func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, erro
 // New returns a new instance of the connector.
 func New(ctx context.Context, config *Config) (*Connector, error) {
 	l := ctxzap.Extract(ctx)
+
+	resourceTags := make([]*client.ResourceTag, 0)
+	for _, rt := range config.ResourceTags {
+		keyValPair := strings.Split(rt, ":")
+		if len(keyValPair) != 2 {
+			return nil, fmt.Errorf("invalid format for resource tag '%s', format should be 'key:val'", rt)
+		}
+		resourceTags = append(resourceTags, &client.ResourceTag{
+			Key:   keyValPair[0],
+			Value: keyValPair[1],
+		})
+	}
 	cli, err := client.New(ctx,
 		config.ClientID,
 		config.ClientSecret,
@@ -71,7 +84,7 @@ func New(ctx context.Context, config *Config) (*Connector, error) {
 		config.AuthURL,
 		config.EndpointURL,
 		config.ResourceIDs,
-		config.ResourceTags,
+		resourceTags,
 		config.ResourceTypes,
 	)
 	if err != nil {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -92,7 +92,7 @@ type Client struct {
 	BearerToken    string
 	BaseUrl        *url.URL
 	resourceIDs    []string
-	resourceTags   []string
+	resourceTags   []*ResourceTag
 	resourceTypes  []string
 }
 
@@ -104,7 +104,7 @@ func New(
 	authUrl string,
 	endpointUrlPath string,
 	resourceIDs []string,
-	resourceTags []string,
+	resourceTags []*ResourceTag,
 	resourceTypes []string,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
@@ -199,14 +199,14 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			return nil, "", err
 		}
 
-		dupeTrack := make(map[string]bool)
+		resourceIdSet := mapset.NewSet[string]()
 
 		for _, n := range resources.Data.GraphSearch.Nodes {
 			for _, accessibleResource := range n.Entities {
-				if _, ok := dupeTrack[accessibleResource.Id]; ok {
+				if resourceIdSet.ContainsOne(accessibleResource.Id) {
 					continue
 				}
-				dupeTrack[accessibleResource.Id] = true
+				resourceIdSet.Add(accessibleResource.Id)
 				bag.Push(pagination.PageState{
 					ResourceID:     accessibleResource.Id,
 					Token:          DefaultEndCursor,
@@ -297,9 +297,8 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	if len(c.resourceTags) != 0 {
 		tagKeyValSlice := make([]map[string]interface{}, 0)
 		for _, tag := range c.resourceTags {
-			keyValPair := strings.Split(tag, ":")
 			tagKeyValSlice = append(tagKeyValSlice, map[string]interface{}{
-				"key": keyValPair[0], "value": keyValPair[1],
+				"key": tag.Key, "value": tag.Value,
 			})
 		}
 		whereClause["tags"] = map[string]interface{}{
