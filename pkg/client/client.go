@@ -9,6 +9,7 @@ import (
 
 	"github.com/conductorone/baton-sdk/pkg/pagination"
 	"github.com/conductorone/baton-sdk/pkg/uhttp"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"golang.org/x/oauth2"
@@ -71,7 +72,7 @@ fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
   grantedEntity {
     ...EntityEffectiveAccessGraphChartEntity
   }
-  accessTypes
+  permissions
 }
 
 fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
@@ -91,7 +92,8 @@ type Client struct {
 	BearerToken    string
 	BaseUrl        *url.URL
 	resourceIDs    []string
-	resourceTags   []string
+	resourceTags   []*ResourceTag
+	resourceTypes  []string
 }
 
 func New(
@@ -102,7 +104,8 @@ func New(
 	authUrl string,
 	endpointUrlPath string,
 	resourceIDs []string,
-	resourceTags []string,
+	resourceTags []*ResourceTag,
+	resourceTypes []string,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -126,6 +129,7 @@ func New(
 		BaseUrl:        endpointUrl,
 		resourceIDs:    resourceIDs,
 		resourceTags:   resourceTags,
+		resourceTypes:  resourceTypes,
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -195,8 +199,14 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			return nil, "", err
 		}
 
+		resourceIdSet := mapset.NewSet[string]()
+
 		for _, n := range resources.Data.GraphSearch.Nodes {
 			for _, accessibleResource := range n.Entities {
+				if resourceIdSet.ContainsOne(accessibleResource.Id) {
+					continue
+				}
+				resourceIdSet.Add(accessibleResource.Id)
 				bag.Push(pagination.PageState{
 					ResourceID:     accessibleResource.Id,
 					Token:          DefaultEndCursor,
@@ -288,7 +298,7 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 		tagKeyValSlice := make([]map[string]interface{}, 0)
 		for _, tag := range c.resourceTags {
 			tagKeyValSlice = append(tagKeyValSlice, map[string]interface{}{
-				"key": "Name", "value": tag,
+				"key": tag.Key, "value": tag.Value,
 			})
 		}
 		whereClause["tags"] = map[string]interface{}{
@@ -296,12 +306,17 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 		}
 	}
 
+	resourceTypes := c.resourceTypes
+	if len(resourceTypes) == 0 {
+		resourceTypes = []string{"ANY"} // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+	}
+
 	variables := map[string]interface{}{
 		"first":     DefaultPageSize,
 		"after":     page,
 		"projectId": "*",
 		"query": map[string]interface{}{
-			"type":  []string{"ANY"}, // TODO(lauren) might be able to filter with CLOUD_RESOURCE
+			"type":  resourceTypes,
 			"where": whereClause,
 		},
 	}

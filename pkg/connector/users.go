@@ -38,14 +38,17 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 
 		firstName, lastName := rs.SplitFullName(user.Name)
 		profile := map[string]interface{}{
-			"login":      primaryEmail,
-			"user_id":    user.Id,
-			"first_name": firstName,
-			"last_name":  lastName,
+			"login":       primaryEmail,
+			"user_id":     user.Id,
+			"first_name":  firstName,
+			"last_name":   lastName,
+			"external_id": user.Properties.ExternalId,
+			"native_type": user.Properties.NativeType,
 		}
 
 		userTraitOptions := []rs.UserTraitOption{
 			rs.WithEmail(primaryEmail, true),
+			rs.WithUserLogin(primaryEmail),
 			rs.WithUserProfile(profile),
 		}
 

@@ -12,7 +12,8 @@ var (
 	audience            = field.StringField("audience", field.WithDefaultValue("wiz-api"), field.WithDescription("The audience used to authenticate with Wiz"))
 	resourceIDs         = field.StringSliceField("resource-ids", field.WithDescription("The resource ids to sync"))
 	tags                = field.StringSliceField("tags", field.WithDescription("The tags on resources to sync"))
-	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags}
+	resourceTypes       = field.StringSliceField("wiz-resource-types", field.WithDescription("The wiz resource-types to sync"))
+	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes}
 )
 
 var configRelations = []field.SchemaFieldRelationship{

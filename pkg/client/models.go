@@ -5,6 +5,11 @@ import (
 	"fmt"
 )
 
+type ResourceTag struct {
+	Key   string
+	Value string
+}
+
 type PageInfo struct {
 	HasNextPage bool   `json:"hasNextPage"`
 	EndCursor   string `json:"endCursor"`
@@ -61,7 +66,7 @@ type ResourcePermissions struct {
 		EntityEffectiveAccessEntries struct {
 			Nodes []struct {
 				GrantedEntity *GrantedEntity `json:"grantedEntity"`
-				AccessTypes   []string       `json:"accessTypes"`
+				Permissions   []string       `json:"permissions"`
 			} `json:"nodes"`
 			PageInfo PageInfo `json:"pageInfo"`
 		} `json:"entityEffectiveAccessEntries"`
