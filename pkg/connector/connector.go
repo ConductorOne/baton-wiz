@@ -69,9 +69,12 @@ func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, erro
 func New(ctx context.Context, config *Config) (*Connector, error) {
 	l := ctxzap.Extract(ctx)
 	var resourceTags []*client.ResourceTag
-	err := json.Unmarshal([]byte(config.ResourceTags), &resourceTags)
-	if err != nil {
-		return nil, resourceTagErr
+	
+	if config.ResourceTags != "" {
+		err := json.Unmarshal([]byte(config.ResourceTags), &resourceTags)
+		if err != nil {
+			return nil, resourceTagErr
+		}
 	}
 
 	for _, rt := range resourceTags {
