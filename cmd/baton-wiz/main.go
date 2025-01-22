@@ -49,7 +49,7 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 	authURL := v.GetString(authURL.FieldName)
 	audience := v.GetString(audience.FieldName)
 	resourceIDs := v.GetStringSlice(resourceIDs.FieldName)
-	resourceTags := v.GetStringSlice(tags.FieldName)
+	resourceTags := v.GetString(tags.FieldName)
 	resourceTypes := v.GetStringSlice(resourceTypes.FieldName)
 
 	cb, err := connector.New(ctx, &connector.Config{

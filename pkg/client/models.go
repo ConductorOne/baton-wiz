@@ -6,8 +6,8 @@ import (
 )
 
 type ResourceTag struct {
-	Key   string
-	Value string
+	Key   string `json:"key"`
+	Value string `json:"val"`
 }
 
 type PageInfo struct {
