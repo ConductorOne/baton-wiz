@@ -2,9 +2,10 @@ package connector
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	v2 "github.com/conductorone/baton-sdk/pb/c1/connector/v2"
 	"github.com/conductorone/baton-sdk/pkg/annotations"
@@ -14,6 +15,8 @@ import (
 	"go.uber.org/zap"
 )
 
+var resourceTagErr = errors.New(`error parsing resource tags, format should be [{"key":"key1","val":"val1"}, {"key":"key2","val":"val2"}]`)
+
 type Config struct {
 	ClientID      string
 	ClientSecret  string
@@ -21,7 +24,7 @@ type Config struct {
 	AuthURL       string
 	Audience      string
 	ResourceIDs   []string
-	ResourceTags  []string
+	ResourceTags  string
 	ResourceTypes []string
 }
 
@@ -65,18 +68,18 @@ func (d *Connector) Validate(ctx context.Context) (annotations.Annotations, erro
 // New returns a new instance of the connector.
 func New(ctx context.Context, config *Config) (*Connector, error) {
 	l := ctxzap.Extract(ctx)
-
-	resourceTags := make([]*client.ResourceTag, 0)
-	for _, rt := range config.ResourceTags {
-		keyValPair := strings.Split(rt, ":")
-		if len(keyValPair) != 2 {
-			return nil, fmt.Errorf("invalid format for resource tag '%s', format should be 'key:val'", rt)
-		}
-		resourceTags = append(resourceTags, &client.ResourceTag{
-			Key:   keyValPair[0],
-			Value: keyValPair[1],
-		})
+	var resourceTags []*client.ResourceTag
+	err := json.Unmarshal([]byte(config.ResourceTags), &resourceTags)
+	if err != nil {
+		return nil, resourceTagErr
 	}
+
+	for _, rt := range resourceTags {
+		if rt.Key == "" || rt.Value == "" {
+			return nil, resourceTagErr
+		}
+	}
+
 	cli, err := client.New(ctx,
 		config.ClientID,
 		config.ClientSecret,
