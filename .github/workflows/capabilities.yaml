@@ -24,6 +24,12 @@ jobs:
         run: go build -o connector ./cmd/baton-wiz
 
       - name: Run and save output
+        env:
+          BATON_WIZ_CLIENT_ID: ${{ secrets.BATON_WIZ_CLIENT_ID }}
+          BATON_WIZ_CLIENT_SECRET: ${{ secrets.BATON_WIZ_CLIENT_SECRET }}
+          BATON_AUTH_URL: 'https://auth.app.wiz.io/oauth/token'
+          BATON_ENDPOINT_URL: 'https://api.us83.app.wiz.io/graphql'
+          BATON_TAGS: ${{ secrets.BATON_TAGS }}
         run: ./connector capabilities > baton_capabilities.json
 
       - name: Commit changes
