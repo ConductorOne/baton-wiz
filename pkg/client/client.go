@@ -59,33 +59,36 @@ const resourceQuery = `query GraphSearch($query: GraphEntityQueryInput, $project
 const resourcePermissionQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
   entityEffectiveAccessEntries(after: $after, first: $first, filterBy: $filterBy) {
     nodes {
-      ...EntityEffectiveAccessDetails
+      permissions
     }
     pageInfo {
       hasNextPage
       endCursor
     }
   }
-}
+}`
 
-fragment EntityEffectiveAccessDetails on EntityEffectiveAccess {
-  grantedEntity {
-    ...EntityEffectiveAccessGraphChartEntity
+const resourceEffectiveAccessQuery = `query CloudEntitlementsTable($after: String, $first: Int, $filterBy: EntityEffectiveAccessFilters) {
+  entityEffectiveAccessEntries(after: $after, first: $first, filterBy: $filterBy) {
+    nodes {
+      grantedEntity {
+        id
+        properties
+      }
+      permissions
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
   }
-  permissions
-}
-
-fragment EntityEffectiveAccessGraphChartEntity on GraphEntity {
-  id
-  name
-  type
-  properties
 }`
 
 const DefaultPageSize = 500
 const DefaultEndCursor = "{{endCursor}}"
 
-var grantedEntityTypeFilter = []string{"IDENTITY", "USER_ACCOUNT", "SERVICE_ACCOUNT"}
+var grantedEntityTypeFilter = []string{"USER_ACCOUNT", "SERVICE_ACCOUNT"}
+var grantedEntityTypeWithIdentityFilter = append(grantedEntityTypeFilter, "IDENTITY")
 
 type Client struct {
 	baseHttpClient *uhttp.BaseHttpClient
@@ -94,6 +97,8 @@ type Client struct {
 	resourceIDs    []string
 	resourceTags   []*ResourceTag
 	resourceTypes  []string
+	userTypeFilter []string
+	resourceIdSet  mapset.Set[string]
 }
 
 func New(
@@ -106,6 +111,7 @@ func New(
 	resourceIDs []string,
 	resourceTags []*ResourceTag,
 	resourceTypes []string,
+	syncIdentities bool,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -124,12 +130,19 @@ func New(
 		return nil, err
 	}
 
+	userTypeFilter := grantedEntityTypeFilter
+	if syncIdentities {
+		userTypeFilter = grantedEntityTypeWithIdentityFilter
+	}
+
 	client := Client{
 		baseHttpClient: wrapper,
 		BaseUrl:        endpointUrl,
 		resourceIDs:    resourceIDs,
 		resourceTags:   resourceTags,
 		resourceTypes:  resourceTypes,
+		userTypeFilter: userTypeFilter,
+		resourceIdSet:  mapset.NewSet[string](),
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -199,14 +212,13 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			return nil, "", err
 		}
 
-		resourceIdSet := mapset.NewSet[string]()
-
 		for _, n := range resources.Data.GraphSearch.Nodes {
 			for _, accessibleResource := range n.Entities {
-				if resourceIdSet.ContainsOne(accessibleResource.Id) {
+				if c.resourceIdSet.ContainsOne(accessibleResource.Id) {
 					continue
 				}
-				resourceIdSet.Add(accessibleResource.Id)
+				c.resourceIdSet.Add(accessibleResource.Id)
+
 				bag.Push(pagination.PageState{
 					ResourceID:     accessibleResource.Id,
 					Token:          DefaultEndCursor,
@@ -214,6 +226,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				})
 			}
 		}
+
 		resourceNextPageMarshal, err := bag.Marshal()
 		if err != nil {
 			return nil, "", err
@@ -225,7 +238,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			"after": page,
 			"filterBy": map[string]interface{}{
 				"grantedEntityType": map[string]interface{}{
-					"equals": grantedEntityTypeFilter,
+					"equals": c.userTypeFilter,
 				},
 				"resource": map[string]interface{}{
 					"id": map[string]interface{}{
@@ -359,7 +372,7 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 		"after": page,
 		"filterBy": map[string]interface{}{
 			"grantedEntityType": map[string]interface{}{
-				"equals": grantedEntityTypeFilter,
+				"equals": c.userTypeFilter,
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
@@ -391,6 +404,57 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 	)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources permissions: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var nextPageToken string
+	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
+		nextPageToken = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+	}
+
+	return res, nextPageToken, nil
+}
+
+func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
+	page := getEndCursor(pToken.Token)
+
+	variables := map[string]interface{}{
+		"first": DefaultPageSize,
+		"after": page,
+		"filterBy": map[string]interface{}{
+			"grantedEntityType": map[string]interface{}{
+				"equals": c.userTypeFilter,
+			},
+			"resource": map[string]interface{}{
+				"id": map[string]interface{}{
+					"equals": []string{resourceId},
+				},
+			},
+		},
+	}
+	payload := map[string]interface{}{
+		"query":     resourceEffectiveAccessQuery,
+		"variables": variables,
+	}
+
+	options := []uhttp.RequestOption{
+		uhttp.WithAcceptJSONHeader(),
+		uhttp.WithJSONBody(payload),
+		WithBearerToken(c.BearerToken),
+	}
+
+	req, err := c.baseHttpClient.NewRequest(ctx, http.MethodPost, c.BaseUrl, options...)
+	if err != nil {
+		return nil, "", err
+	}
+
+	res := &ResourcePermissions{}
+	resp, err := c.baseHttpClient.Do(
+		req,
+		uhttp.WithJSONResponse(&res),
+	)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: failed to list resource permissions effective access: %w", err)
 	}
 	defer resp.Body.Close()
 

@@ -13,7 +13,8 @@ var (
 	resourceIDs         = field.StringSliceField("resource-ids", field.WithDescription("The resource ids to sync"))
 	tags                = field.StringField("tags", field.WithDescription("The tags on resources to sync"))
 	resourceTypes       = field.StringSliceField("wiz-resource-types", field.WithDescription("The wiz resource-types to sync"))
-	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes}
+	syncIdentities      = field.BoolField("sync-identities", field.WithDescription("Enable if wiz identities should be synced"))
+	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities}
 )
 
 var configRelations = []field.SchemaFieldRelationship{

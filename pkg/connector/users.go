@@ -38,12 +38,10 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 
 		firstName, lastName := rs.SplitFullName(user.Name)
 		profile := map[string]interface{}{
-			"login":       primaryEmail,
-			"user_id":     user.Id,
-			"first_name":  firstName,
-			"last_name":   lastName,
-			"external_id": user.Properties.ExternalId,
-			"native_type": user.Properties.NativeType,
+			"login":      primaryEmail,
+			"user_id":    user.Id,
+			"first_name": firstName,
+			"last_name":  lastName,
 		}
 
 		userTraitOptions := []rs.UserTraitOption{
@@ -70,10 +68,15 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 			}
 		}
 
+		userId := primaryEmail
+		if userId == "" {
+			userId = user.Id
+		}
+
 		resource, err := rs.NewUserResource(
 			user.Name,
 			userResourceType,
-			user.Id,
+			userId,
 			userTraitOptions,
 		)
 		if err != nil {
