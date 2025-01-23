@@ -39,14 +39,10 @@ type GrantedEntity struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
 	Properties struct {
-		VertexID     string `json:"_vertexID"`
 		Email        string `json:"email"`
 		Emails       Emails `json:"emails,omitempty"`
-		Name         string `json:"name"`
-		NativeType   string `json:"nativeType"`
 		PrimaryEmail string `json:"primaryEmail"`
 		Enabled      *bool  `json:"accountEnabled"`
-		ExternalId   string `json:"externalId"`
 	} `json:"properties"`
 }
 

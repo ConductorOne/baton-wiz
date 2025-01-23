@@ -65,20 +65,30 @@ func (o *resourceBuilder) Entitlements(ctx context.Context, resource *v2.Resourc
 
 func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken *pagination.Token) ([]*v2.Grant, string, annotations.Annotations, error) {
 	var rv []*v2.Grant
-	resourcePermissions, nextPageToken, err := o.client.ListResourcePermissions(ctx, resource.Id.Resource, pToken)
+	resourcePermissions, nextPageToken, err := o.client.ListResourcePermissionEffectiveAccess(ctx, resource.Id.Resource, pToken)
 	if err != nil {
 		return nil, "", nil, err
 	}
 
 	nodes := resourcePermissions.Data.EntityEffectiveAccessEntries.Nodes
 	for _, n := range nodes {
-		if n.GrantedEntity == nil {
+		user := n.GrantedEntity
+		if user == nil {
 			continue
+		}
+
+		primaryEmail := user.Properties.PrimaryEmail
+		if primaryEmail == "" {
+			primaryEmail = user.Properties.Email
+		}
+		userId := primaryEmail
+		if userId == "" {
+			userId = user.Id
 		}
 
 		principal := &v2.ResourceId{
 			ResourceType: userResourceType.Id,
-			Resource:     n.GrantedEntity.Id,
+			Resource:     userId,
 		}
 
 		for _, p := range n.Permissions {
