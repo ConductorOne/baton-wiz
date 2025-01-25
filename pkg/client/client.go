@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -87,8 +88,25 @@ const resourceEffectiveAccessQuery = `query CloudEntitlementsTable($after: Strin
 const DefaultPageSize = 500
 const DefaultEndCursor = "{{endCursor}}"
 
-var grantedEntityTypeFilter = []string{"USER_ACCOUNT", "SERVICE_ACCOUNT"}
-var grantedEntityTypeWithIdentityFilter = append(grantedEntityTypeFilter, "IDENTITY")
+const GrantedEntityTypeIdentity = "IDENTITY"
+const GrantedEntityTypeUserAccount = "USER_ACCOUNT"
+const GrantedEntityTypeServiceAccount = "SERVICE_ACCOUNT"
+
+var grantedEntityTypeFilter = []string{GrantedEntityTypeUserAccount, GrantedEntityTypeServiceAccount}
+var grantedEntityTypeWithIdentityFilter = append(grantedEntityTypeFilter, GrantedEntityTypeIdentity)
+
+type UserTypeToken struct {
+	UserType string `json:"user_type"`
+	Token    string `json:"token"`
+}
+
+func (utt *UserTypeToken) Marshal() (string, error) {
+	data, err := json.Marshal(utt)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
 
 type Client struct {
 	baseHttpClient *uhttp.BaseHttpClient
@@ -192,7 +210,7 @@ func (c *Client) Authorize(
 }
 
 func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pagination.Token) (*UsersWithAccessQueryResponse, string, error) {
-	bag, page, err := parseUserPageToken(pToken.Token, c.resourceIDs)
+	bag, page, err := c.parseUserPageToken(pToken.Token, c.resourceIDs)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: error parsing user page token: %w", err)
 	}
@@ -219,11 +237,21 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				}
 				c.resourceIdSet.Add(accessibleResource.Id)
 
-				bag.Push(pagination.PageState{
-					ResourceID:     accessibleResource.Id,
-					Token:          DefaultEndCursor,
-					ResourceTypeID: ListUsersResourceTypeResourceID,
-				})
+				for _, ut := range c.userTypeFilter {
+					userTypeWithToken := &UserTypeToken{
+						UserType: ut,
+						Token:    DefaultEndCursor,
+					}
+					tokenStr, err := userTypeWithToken.Marshal()
+					if err != nil {
+						return nil, "", err
+					}
+					bag.Push(pagination.PageState{
+						ResourceID:     accessibleResource.Id,
+						Token:          tokenStr,
+						ResourceTypeID: ListUsersResourceTypeResourceID,
+					})
+				}
 			}
 		}
 
@@ -233,12 +261,17 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 		}
 		return &UsersWithAccessQueryResponse{}, resourceNextPageMarshal, nil
 	case ListUsersResourceTypeResourceID:
+		ut, err := parseUserTypeToken(page)
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w, page: %s", err, page)
+		}
+
 		variables := map[string]interface{}{
 			"first": DefaultPageSize,
-			"after": page,
+			"after": ut.Token,
 			"filterBy": map[string]interface{}{
 				"grantedEntityType": map[string]interface{}{
-					"equals": c.userTypeFilter,
+					"equals": ut.UserType,
 				},
 				"resource": map[string]interface{}{
 					"id": map[string]interface{}{
@@ -276,7 +309,12 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 
 		var nextPageToken string
 		if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-			err = bag.Next(res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor)
+			ut.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+			userTypeTokenStr, err := ut.Marshal()
+			if err != nil {
+				return nil, "", fmt.Errorf("wiz-connector: error converting user type page token: %w", err)
+			}
+			err = bag.Next(userTypeTokenStr)
 			if err != nil {
 				return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 			}
@@ -365,14 +403,21 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 }
 
 func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
-	page := getEndCursor(pToken.Token)
+	bag, page, err := c.getUserTypeToken(pToken.Token)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
+	}
+	ut, err := parseUserTypeToken(page)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w", err)
+	}
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
-		"after": page,
+		"after": ut.Token,
 		"filterBy": map[string]interface{}{
 			"grantedEntityType": map[string]interface{}{
-				"equals": c.userTypeFilter,
+				"equals": ut.UserType,
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
@@ -407,23 +452,46 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 	}
 	defer resp.Body.Close()
 
-	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		nextPageToken = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		ut.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		userTypeTokenStr, err := ut.Marshal()
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: error converting user type page token: %w", err)
+		}
+		err = bag.Next(userTypeTokenStr)
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+		}
+	} else {
+		err = bag.Next("")
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+		}
+	}
+	nextPageToken, err := bag.Marshal()
+	if err != nil {
+		return nil, "", err
 	}
 
 	return res, nextPageToken, nil
 }
 
 func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
-	page := getEndCursor(pToken.Token)
+	bag, page, err := c.getUserTypeToken(pToken.Token)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
+	}
+	ut, err := parseUserTypeToken(page)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w", err)
+	}
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
-		"after": page,
+		"after": ut.Token,
 		"filterBy": map[string]interface{}{
 			"grantedEntityType": map[string]interface{}{
-				"equals": c.userTypeFilter,
+				"equals": ut.UserType,
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
@@ -458,9 +526,25 @@ func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, reso
 	}
 	defer resp.Body.Close()
 
-	var nextPageToken string
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		nextPageToken = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		ut.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		userTypeTokenStr, err := ut.Marshal()
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: error converting user type page token: %w", err)
+		}
+		err = bag.Next(userTypeTokenStr)
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+		}
+	} else {
+		err = bag.Next("")
+		if err != nil {
+			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
+		}
+	}
+	nextPageToken, err := bag.Marshal()
+	if err != nil {
+		return nil, "", err
 	}
 
 	return res, nextPageToken, nil
@@ -470,7 +554,55 @@ func WithBearerToken(token string) uhttp.RequestOption {
 	return uhttp.WithHeader("Authorization", fmt.Sprintf("Bearer %s", token))
 }
 
-func parseUserPageToken(token string, resourceIDs []string) (*pagination.Bag, string, error) {
+func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagination.Bag, string, error) {
+	b := &pagination.Bag{}
+	err := b.Unmarshal(token)
+	if err != nil {
+		return nil, "", fmt.Errorf("wiz-connector: failed to unmarshal bag: %w", err)
+	}
+
+	if b.Current() == nil {
+		if len(resourceIDs) != 0 {
+			for _, resourceID := range resourceIDs {
+				for _, ut := range c.userTypeFilter {
+					userTypeWithToken := &UserTypeToken{
+						UserType: ut,
+						Token:    DefaultEndCursor,
+					}
+					tokenStr, err := userTypeWithToken.Marshal()
+					if err != nil {
+						return nil, "", err
+					}
+					b.Push(pagination.PageState{
+						ResourceID:     resourceID,
+						Token:          tokenStr,
+						ResourceTypeID: ListUsersResourceTypeResourceID,
+					})
+				}
+			}
+		} else {
+			b.Push(pagination.PageState{
+				Token:          DefaultEndCursor,
+				ResourceTypeID: ListUsersResourceTypeResourceTag,
+			})
+		}
+	}
+
+	page := b.PageToken()
+
+	return b, page, nil
+}
+
+func parseUserTypeToken(token string) (*UserTypeToken, error) {
+	utt := &UserTypeToken{}
+	err := json.Unmarshal([]byte(token), &utt)
+	if err != nil {
+		return nil, err
+	}
+	return utt, nil
+}
+
+func (c *Client) getUserTypeToken(token string) (*pagination.Bag, string, error) {
 	b := &pagination.Bag{}
 	err := b.Unmarshal(token)
 	if err != nil {
@@ -478,18 +610,17 @@ func parseUserPageToken(token string, resourceIDs []string) (*pagination.Bag, st
 	}
 
 	if b.Current() == nil {
-		if len(resourceIDs) != 0 {
-			for _, resourceID := range resourceIDs {
-				b.Push(pagination.PageState{
-					ResourceID:     resourceID,
-					Token:          DefaultEndCursor,
-					ResourceTypeID: ListUsersResourceTypeResourceID,
-				})
+		for _, ut := range c.userTypeFilter {
+			userTypeWithToken := &UserTypeToken{
+				UserType: ut,
+				Token:    DefaultEndCursor,
 			}
-		} else {
+			tokenStr, err := userTypeWithToken.Marshal()
+			if err != nil {
+				return nil, "", err
+			}
 			b.Push(pagination.PageState{
-				Token:          DefaultEndCursor,
-				ResourceTypeID: ListUsersResourceTypeResourceTag,
+				Token: tokenStr,
 			})
 		}
 	}
