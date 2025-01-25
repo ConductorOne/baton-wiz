@@ -10,8 +10,6 @@ import (
 	"github.com/conductorone/baton-wiz/pkg/client"
 )
 
-const userTypeServiceAccount = "SERVICE_ACCOUNT"
-
 type userBuilder struct {
 	client *client.Client
 }
@@ -58,7 +56,7 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 			}
 		}
 
-		if user.Type == userTypeServiceAccount {
+		if user.Type == client.GrantedEntityTypeServiceAccount {
 			userTraitOptions = append(userTraitOptions, rs.WithAccountType(v2.UserTrait_ACCOUNT_TYPE_SERVICE))
 		}
 
