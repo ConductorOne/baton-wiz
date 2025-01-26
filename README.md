@@ -69,21 +69,25 @@ Available Commands:
   help               Help about any command
 
 Flags:
+      --audience string              The audience used to authenticate with Wiz ($BATON_AUDIENCE) (default "wiz-api")
+      --auth-url string              required: The auth url used to authenticate with Wiz ($BATON_AUTH_URL)
       --client-id string             The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)
       --client-secret string         The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)
-      --wiz-client-id string         The Wiz client ID ($BATON_WIZ_CLIENT_ID)
-      --wiz-client-secret string     The Wiz client secret ($BATON_WIZ_CLIENT_SECRET)
-      --auth-url string              The Token URL for authentication with the Wiz API ($BATON_AUTH_URL)
-      --endpoint-url                 The Wiz GraphQL API endpoint URL ($BATON_ENDPOINT_URL)
-      --audience                     The Wiz audience ($BATON_AUDIENCE)
-      --resource-ids                 The Wiz resource IDs to sync  ($BATON_RESOURCE_IDS)
+      --endpoint-url string          required: The endpoint url used to authenticate with Wiz ($BATON_ENDPOINT_URL)
   -f, --file string                  The path to the c1z file to sync with ($BATON_FILE) (default "sync.c1z")
   -h, --help                         help for baton-wiz
       --log-format string            The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
       --log-level string             The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
-  -p, --provisioning                 If this connector supports provisioning, this must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
+  -p, --provisioning                 This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
+      --resource-ids strings         The resource ids to sync ($BATON_RESOURCE_IDS)
+      --skip-full-sync               This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
+      --sync-identities              Enable if wiz identities should be synced ($BATON_SYNC_IDENTITIES)
+      --tags string                  The tags on resources to sync ($BATON_TAGS)
       --ticketing                    This must be set to enable ticketing support ($BATON_TICKETING)
   -v, --version                      version for baton-wiz
+      --wiz-client-id string         required: The client ID used to authenticate with Wiz ($BATON_WIZ_CLIENT_ID)
+      --wiz-client-secret string     required: The client secret used to authenticate with Wiz ($BATON_WIZ_CLIENT_SECRET)
+      --wiz-resource-types strings   The wiz resource-types to sync ($BATON_WIZ_RESOURCE_TYPES)
 
 Use "baton-wiz [command] --help" for more information about a command.
 ```
