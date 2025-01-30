@@ -210,6 +210,7 @@ func (c *Client) Authorize(
 }
 
 func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pagination.Token) (*UsersWithAccessQueryResponse, string, error) {
+	l := ctxzap.Extract(ctx)
 	bag, page, err := c.parseUserPageToken(pToken.Token, c.resourceIDs)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: error parsing user page token: %w", err)
@@ -222,6 +223,10 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 		resourceToken := &pagination.Token{Token: page}
 		resources, resourceNextPage, err := c.ListResources(ctx, resourceToken)
 		if err != nil {
+			l.Error("wiz-connector: failed to list resources for list users",
+				zap.String("page_token", pToken.Token),
+				zap.String("page", page),
+				zap.Error(err))
 			return nil, "", err
 		}
 
@@ -303,6 +308,12 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			uhttp.WithJSONResponse(&res),
 		)
 		if err != nil {
+			l.Error("wiz-connector: failed to list users with access to resources",
+				zap.String("page_token", pToken.Token),
+				zap.String("page", page),
+				zap.String("user_token", ut.Token),
+				zap.String("user_type", ut.UserType),
+				zap.Error(err))
 			return nil, "", fmt.Errorf("wiz-connector: failed to list users with access to resources: %w", err)
 		}
 		defer resp.Body.Close()
@@ -336,6 +347,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 }
 
 func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*ResourceResponse, string, error) {
+	l := ctxzap.Extract(ctx)
 	page := getEndCursor(pToken.Token)
 
 	whereClause := make(map[string]interface{}, 0)
@@ -390,6 +402,10 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	res := &ResourceResponse{}
 	resp, err := c.baseHttpClient.Do(req, uhttp.WithJSONResponse(&res))
 	if err != nil {
+		l.Error("wiz-connector: failed to list resources",
+			zap.String("token", pToken.Token),
+			zap.String("page", page),
+			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources: %w", err)
 	}
 	defer resp.Body.Close()
@@ -403,6 +419,7 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 }
 
 func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
+	l := ctxzap.Extract(ctx)
 	bag, page, err := c.getUserTypeToken(pToken.Token)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
@@ -448,6 +465,12 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 		uhttp.WithJSONResponse(&res),
 	)
 	if err != nil {
+		l.Error("wiz-connector: failed to list resources permissions",
+			zap.String("page_token", pToken.Token),
+			zap.String("page", page),
+			zap.String("user_token", ut.Token),
+			zap.String("user_type", ut.UserType),
+			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources permissions: %w", err)
 	}
 	defer resp.Body.Close()
@@ -477,6 +500,7 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 }
 
 func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
+	l := ctxzap.Extract(ctx)
 	bag, page, err := c.getUserTypeToken(pToken.Token)
 	if err != nil {
 		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
@@ -522,6 +546,12 @@ func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, reso
 		uhttp.WithJSONResponse(&res),
 	)
 	if err != nil {
+		l.Error("wiz-connector: failed to list resource permissions effective access",
+			zap.String("page_token", pToken.Token),
+			zap.String("page", page),
+			zap.String("user_token", ut.Token),
+			zap.String("user_type", ut.UserType),
+			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resource permissions effective access: %w", err)
 	}
 	defer resp.Body.Close()
