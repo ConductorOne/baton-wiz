@@ -18,15 +18,16 @@ import (
 var resourceTagErr = errors.New(`error parsing resource tags, format should be [{"key":"key1","val":"val1"}, {"key":"key2","val":"val2"}]`)
 
 type Config struct {
-	ClientID       string
-	ClientSecret   string
-	EndpointURL    string
-	AuthURL        string
-	Audience       string
-	ResourceIDs    []string
-	ResourceTags   string
-	ResourceTypes  []string
-	SyncIdentities bool
+	ClientID            string
+	ClientSecret        string
+	EndpointURL         string
+	AuthURL             string
+	Audience            string
+	ResourceIDs         []string
+	ResourceTags        string
+	ResourceTypes       []string
+	SyncIdentities      bool
+	SyncServiceAccounts bool
 }
 
 type Connector struct {
@@ -94,6 +95,7 @@ func New(ctx context.Context, config *Config) (*Connector, error) {
 		resourceTags,
 		config.ResourceTypes,
 		config.SyncIdentities,
+		config.SyncServiceAccounts,
 	)
 	if err != nil {
 		l.Error("wiz-connector: failed to read token response", zap.Error(err))

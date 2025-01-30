@@ -52,17 +52,19 @@ func getConnector(ctx context.Context, v *viper.Viper) (types.ConnectorServer, e
 	resourceTags := v.GetString(tags.FieldName)
 	resourceTypes := v.GetStringSlice(resourceTypes.FieldName)
 	syncIdentities := v.GetBool(syncIdentities.FieldName)
+	syncServiceUsers := v.GetBool(syncServiceUsers.FieldName)
 
 	cb, err := connector.New(ctx, &connector.Config{
-		ClientID:       clientID,
-		ClientSecret:   clientSecret,
-		EndpointURL:    endpointURL,
-		AuthURL:        authURL,
-		Audience:       audience,
-		ResourceIDs:    resourceIDs,
-		ResourceTags:   resourceTags,
-		ResourceTypes:  resourceTypes,
-		SyncIdentities: syncIdentities,
+		ClientID:            clientID,
+		ClientSecret:        clientSecret,
+		EndpointURL:         endpointURL,
+		AuthURL:             authURL,
+		Audience:            audience,
+		ResourceIDs:         resourceIDs,
+		ResourceTags:        resourceTags,
+		ResourceTypes:       resourceTypes,
+		SyncIdentities:      syncIdentities,
+		SyncServiceAccounts: syncServiceUsers,
 	})
 	if err != nil {
 		l.Error("wiz-connector: error creating connector", zap.Error(err))
