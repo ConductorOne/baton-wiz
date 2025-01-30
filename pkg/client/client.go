@@ -92,8 +92,7 @@ const GrantedEntityTypeIdentity = "IDENTITY"
 const GrantedEntityTypeUserAccount = "USER_ACCOUNT"
 const GrantedEntityTypeServiceAccount = "SERVICE_ACCOUNT"
 
-var grantedEntityTypeFilter = []string{GrantedEntityTypeUserAccount, GrantedEntityTypeServiceAccount}
-var grantedEntityTypeWithIdentityFilter = append(grantedEntityTypeFilter, GrantedEntityTypeIdentity)
+var grantedEntityTypeUserAccountFilter = []string{GrantedEntityTypeUserAccount}
 
 type UserTypeToken struct {
 	UserType string `json:"user_type"`
@@ -130,6 +129,7 @@ func New(
 	resourceTags []*ResourceTag,
 	resourceTypes []string,
 	syncIdentities bool,
+	syncServiceAccounts bool,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -148,9 +148,12 @@ func New(
 		return nil, err
 	}
 
-	userTypeFilter := grantedEntityTypeFilter
+	userTypeFilter := grantedEntityTypeUserAccountFilter
+	if syncServiceAccounts {
+		userTypeFilter = append(userTypeFilter, GrantedEntityTypeServiceAccount)
+	}
 	if syncIdentities {
-		userTypeFilter = grantedEntityTypeWithIdentityFilter
+		userTypeFilter = append(userTypeFilter, GrantedEntityTypeIdentity)
 	}
 
 	client := Client{
