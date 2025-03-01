@@ -2,6 +2,8 @@ module github.com/conductorone/baton-wiz
 
 go 1.23.4
 
+toolchain go1.24.1
+
 require (
 	github.com/conductorone/baton-sdk v0.2.90
 	github.com/deckarep/golang-set/v2 v2.7.0
