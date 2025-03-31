@@ -74,7 +74,9 @@ const resourceEffectiveAccessQuery = `query CloudEntitlementsTable($after: Strin
     nodes {
       grantedEntity {
         id
+        type
         properties
+        providerUniqueId
       }
       permissions
     }
@@ -91,8 +93,9 @@ const DefaultEndCursor = "{{endCursor}}"
 const GrantedEntityTypeIdentity = "IDENTITY"
 const GrantedEntityTypeUserAccount = "USER_ACCOUNT"
 const GrantedEntityTypeServiceAccount = "SERVICE_ACCOUNT"
+const GrantedEntityTypeGroup = "GROUP"
 
-var grantedEntityTypeUserAccountFilter = []string{GrantedEntityTypeUserAccount}
+var grantedEntityTypeUserAccountFilter = []string{GrantedEntityTypeUserAccount, GrantedEntityTypeGroup}
 
 type UserTypeToken struct {
 	UserType string `json:"user_type"`

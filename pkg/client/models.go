@@ -35,14 +35,18 @@ func (e *Emails) UnmarshalJSON(data []byte) error {
 }
 
 type GrantedEntity struct {
-	Id         string `json:"id"`
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Properties struct {
-		Email        string `json:"email"`
-		Emails       Emails `json:"emails,omitempty"`
-		PrimaryEmail string `json:"primaryEmail"`
-		Enabled      *bool  `json:"accountEnabled"`
+	Id               string `json:"id"`
+	Name             string `json:"name"`
+	Type             string `json:"type"`
+	ProviderUniqueId string `json:"providerUniqueId"`
+	Properties       struct {
+		Email            string `json:"email"`
+		Emails           Emails `json:"emails,omitempty"`
+		PrimaryEmail     string `json:"primaryEmail"`
+		Enabled          *bool  `json:"accountEnabled"`
+		ExternalId       string `json:"externalId"`
+		NativeType       string `json:"nativeType"`
+		ProviderUniqueId string `json:"providerUniqueId"`
 	} `json:"properties"`
 }
 

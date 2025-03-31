@@ -38,7 +38,8 @@ type Connector struct {
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
 func (d *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
 	return []connectorbuilder.ResourceSyncer{
-		newUserBuilder(d.Client),
+		// TODO(lauren) check mode before doing these changes to not change current wiz connector behavior
+		// newUserBuilder(d.Client),
 		newResourceBuilder(d.Client),
 	}
 }
