@@ -43,6 +43,7 @@ type GrantedEntity struct {
 		Emails       Emails `json:"emails,omitempty"`
 		PrimaryEmail string `json:"primaryEmail"`
 		Enabled      *bool  `json:"accountEnabled"`
+		ExternalId   string `json:"externalId"`
 	} `json:"properties"`
 }
 

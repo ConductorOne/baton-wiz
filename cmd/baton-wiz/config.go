@@ -16,6 +16,12 @@ var (
 	syncIdentities    = field.BoolField("sync-identities", field.WithDescription("Enable if wiz identities should be synced"))
 	syncServiceUsers  = field.BoolField("sync-service-accounts", field.WithDescription("Enable if wiz service accounts should be synced"))
 
+	userExternalIdField = field.BoolField(
+		"user-external-id",
+		field.WithDescription("Enable external resources with externalId, if false user email is used"),
+		field.WithDefaultValue(false),
+	)
+
 	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities, syncServiceUsers}
 )
 

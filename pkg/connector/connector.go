@@ -28,6 +28,7 @@ type Config struct {
 	ResourceTypes       []string
 	SyncIdentities      bool
 	SyncServiceAccounts bool
+	UserExternalIdField bool
 }
 
 type Connector struct {
@@ -38,7 +39,7 @@ type Connector struct {
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
 func (d *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
 	return []connectorbuilder.ResourceSyncer{
-		newUserBuilder(d.Client),
+		newUserBuilder(d.Client, d.Config.UserExternalIdField),
 		newResourceBuilder(d.Client),
 	}
 }

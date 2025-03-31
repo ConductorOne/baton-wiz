@@ -11,7 +11,8 @@ import (
 )
 
 type userBuilder struct {
-	client *client.Client
+	client              *client.Client
+	userExternalIdField bool
 }
 
 func (o *userBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -40,6 +41,8 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 			"user_id":    user.Id,
 			"first_name": firstName,
 			"last_name":  lastName,
+			// batonId does not use the external ID on Resource, just profiles fields.
+			"external_id": user.Properties.ExternalId,
 		}
 
 		userTraitOptions := []rs.UserTraitOption{
@@ -71,11 +74,34 @@ func (o *userBuilder) List(ctx context.Context, parentResourceID *v2.ResourceId,
 			userId = user.Id
 		}
 
+		opts := []rs.ResourceOption{
+			rs.WithExternalID(&v2.ExternalId{
+				Id:          user.Properties.ExternalId,
+				Description: "External ID",
+				Link:        "",
+			}),
+		}
+
+		if o.userExternalIdField {
+			opts = append(opts, rs.WithAnnotation(&v2.ExternalResourceMatch{
+				Key:          "external_id",
+				Value:        user.Properties.ExternalId,
+				ResourceType: v2.ResourceType_TRAIT_USER,
+			}))
+		} else {
+			opts = append(opts, rs.WithAnnotation(&v2.ExternalResourceMatch{
+				Key:          "email",
+				Value:        primaryEmail,
+				ResourceType: v2.ResourceType_TRAIT_USER,
+			}))
+		}
+
 		resource, err := rs.NewUserResource(
 			user.Name,
 			userResourceType,
 			userId,
 			userTraitOptions,
+			opts...,
 		)
 		if err != nil {
 			return nil, "", nil, err
@@ -97,6 +123,9 @@ func (o *userBuilder) Grants(ctx context.Context, resource *v2.Resource, pToken 
 	return nil, "", nil, nil
 }
 
-func newUserBuilder(client *client.Client) *userBuilder {
-	return &userBuilder{client: client}
+func newUserBuilder(client *client.Client, userExternalIdField bool) *userBuilder {
+	return &userBuilder{
+		client:              client,
+		userExternalIdField: userExternalIdField,
+	}
 }
