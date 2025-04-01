@@ -77,10 +77,21 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 			continue
 		}
 		if grantedEntity.Type == client.GrantedEntityTypeGroup {
-			// TODO: do group grant (probably with expandable)
-			// ExternalResourceMatch with ResourceType: v2.ResourceType_TRAIT_GROUP
-			// Maybe use external id for key, but we need to filter more than group
-			// To just get okta groups. can use nativeType OKTA_GROUP for filtering in graphql query
+			for _, p := range n.Permissions {
+				principal := &v2.ResourceId{
+					ResourceType: groupResourceType.Id,
+					Resource:     "*", // TODO(lauren) figure out what this should be (maybe id is fine)
+				}
+
+				// TODO: Maybe use external id for key, but we need to filter more than just GROUP
+				// To just get okta groups. can use nativeType OKTA_GROUP for filtering in graphql query
+				rv = append(rv, sdkGrant.NewGrant(resource, p, principal, sdkGrant.WithAnnotation(&v2.ExternalResourceMatch{
+					ResourceType: v2.ResourceType_TRAIT_GROUP,
+					Key:          "name",
+					Value:        grantedEntity.Name,
+				})))
+
+			}
 			continue
 		}
 
@@ -96,8 +107,7 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 		// TODO(lauren) check mode before doing these changes to not change current wiz connector behavior
 		principal := &v2.ResourceId{
 			ResourceType: userResourceType.Id,
-			// Resource:     userId,
-			Resource: "*",
+			Resource:     userId,
 		}
 
 		for _, p := range n.Permissions {
@@ -108,6 +118,7 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 			})))
 		}
 	}
+
 	return rv, nextPageToken, nil, nil
 }
 

@@ -46,6 +46,7 @@ type GrantedEntity struct {
 		Enabled          *bool  `json:"accountEnabled"`
 		ExternalId       string `json:"externalId"`
 		NativeType       string `json:"nativeType"`
+		Name             string `json:"name"`
 		ProviderUniqueId string `json:"providerUniqueId"`
 	} `json:"properties"`
 }

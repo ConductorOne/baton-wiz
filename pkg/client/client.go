@@ -74,6 +74,7 @@ const resourceEffectiveAccessQuery = `query CloudEntitlementsTable($after: Strin
     nodes {
       grantedEntity {
         id
+        name
         type
         properties
         providerUniqueId

@@ -13,6 +13,12 @@ var userResourceType = &v2.ResourceType{
 	Annotations: annotations.New(&v2.SkipEntitlementsAndGrants{}),
 }
 
+var groupResourceType = &v2.ResourceType{
+	Id:          "group",
+	DisplayName: "Group",
+	Traits:      []v2.ResourceType_Trait{v2.ResourceType_TRAIT_GROUP},
+}
+
 var wizQueryResourceType = &v2.ResourceType{
 	Id:          "wiz_query_resource_type",
 	DisplayName: "WizQueryResourceType",
