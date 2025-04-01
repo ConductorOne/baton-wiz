@@ -84,7 +84,9 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 				}
 
 				// TODO: Maybe use external id for key, but we need to filter more than just GROUP
-				// To just get okta groups. can use nativeType OKTA_GROUP for filtering in graphql query
+				// To just get okta groups. can use nativeType okta#group for filtering in graphql query
+				// nativeType: {equals: ["okta#group"]}
+				// nativeType: {equals: ["okta#group", "okta#user"]} for both okta user/okta group
 				rv = append(rv, sdkGrant.NewGrant(resource, p, principal, sdkGrant.WithAnnotation(&v2.ExternalResourceMatch{
 					ResourceType: v2.ResourceType_TRAIT_GROUP,
 					Key:          "name",
