@@ -3,7 +3,7 @@ module github.com/conductorone/baton-wiz
 go 1.23.4
 
 require (
-	github.com/conductorone/baton-sdk v0.2.88
+	github.com/conductorone/baton-sdk v0.2.90-0.20250401222743-6de37f73c0d0
 	github.com/deckarep/golang-set/v2 v2.7.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/spf13/viper v1.19.0

@@ -15,8 +15,9 @@ var (
 	resourceTypes     = field.StringSliceField("wiz-resource-types", field.WithDescription("The wiz resource-types to sync"))
 	syncIdentities    = field.BoolField("sync-identities", field.WithDescription("Enable if wiz identities should be synced"))
 	syncServiceUsers  = field.BoolField("sync-service-accounts", field.WithDescription("Enable if wiz service accounts should be synced"))
+	externalSyncMode  = field.BoolField("external-sync-mode", field.WithDescription("Enable external sync mode"))
 
-	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities, syncServiceUsers}
+	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities, syncServiceUsers, externalSyncMode}
 )
 
 var configRelations = []field.SchemaFieldRelationship{

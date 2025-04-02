@@ -15,7 +15,8 @@ import (
 )
 
 type resourceBuilder struct {
-	client *client.Client
+	client           *client.Client
+	externalSyncMode bool
 }
 
 func (o *resourceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -76,48 +77,40 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 		if grantedEntity == nil {
 			continue
 		}
+
+		var resourceType string
 		if grantedEntity.Type == client.GrantedEntityTypeGroup {
-			for _, p := range n.Permissions {
-				principal := &v2.ResourceId{
-					ResourceType: groupResourceType.Id,
-					Resource:     "*", // TODO(lauren) figure out what this should be (maybe id is fine)
-				}
-
-				// TODO: Maybe use external id for key, but we need to filter more than just GROUP
-				// To just get okta groups. can use nativeType okta#group for filtering in graphql query
-				// nativeType: {equals: ["okta#group"]}
-				// nativeType: {equals: ["okta#group", "okta#user"]} for both okta user/okta group
-				rv = append(rv, sdkGrant.NewGrant(resource, p, principal, sdkGrant.WithAnnotation(&v2.ExternalResourceMatch{
-					ResourceType: v2.ResourceType_TRAIT_GROUP,
-					Key:          "name",
-					Value:        grantedEntity.Name,
-				})))
-
-			}
-			continue
+			resourceType = groupResourceType.Id
+		} else {
+			resourceType = userResourceType.Id
 		}
 
-		primaryEmail := grantedEntity.Properties.PrimaryEmail
-		if primaryEmail == "" {
-			primaryEmail = grantedEntity.Properties.Email
-		}
-		userId := primaryEmail
-		if userId == "" {
-			userId = grantedEntity.Id
-		}
-
-		// TODO(lauren) check mode before doing these changes to not change current wiz connector behavior
+		// TODO(lauren) Check if resource ID should be grantedEntity.Properties.ExternalId when in externalSyncMode
 		principal := &v2.ResourceId{
-			ResourceType: userResourceType.Id,
-			Resource:     userId,
+			ResourceType: resourceType,
+			Resource:     grantedEntity.Id,
+		}
+
+		grantOpts := make([]sdkGrant.GrantOption, 0)
+		if o.externalSyncMode {
+			// TODO(lauren) do we want to exclude entities with no external id when in this mode?
+			// If so, consider adding a filter to graphql query
+			if grantedEntity.Properties.ExternalId == "" {
+				continue
+			}
+			grantOpts = append(grantOpts, sdkGrant.WithAnnotation(&v2.ExternalResourceMatchID{
+				Id: grantedEntity.Properties.ExternalId,
+			}))
+		} else {
+			if grantedEntity.Properties.PrimaryEmail != "" {
+				principal.Resource = grantedEntity.Properties.PrimaryEmail
+			} else if grantedEntity.Properties.Email != "" {
+				principal.Resource = grantedEntity.Properties.Email
+			}
 		}
 
 		for _, p := range n.Permissions {
-			rv = append(rv, sdkGrant.NewGrant(resource, p, principal, sdkGrant.WithAnnotation(&v2.ExternalResourceMatch{
-				ResourceType: v2.ResourceType_TRAIT_USER,
-				Key:          "email",
-				Value:        primaryEmail,
-			})))
+			rv = append(rv, sdkGrant.NewGrant(resource, p, principal, grantOpts...))
 		}
 	}
 
@@ -125,13 +118,17 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 }
 
 func (o *resourceBuilder) resourceEntitlement(resource *v2.Resource, accessType string) *v2.Entitlement {
+	grantableTo := []*v2.ResourceType{userResourceType}
+	if o.externalSyncMode {
+		grantableTo = append(grantableTo, groupResourceType)
+	}
 	return sdkEntitlement.NewPermissionEntitlement(resource, accessType,
-		sdkEntitlement.WithGrantableTo(userResourceType),
+		sdkEntitlement.WithGrantableTo(grantableTo...),
 		sdkEntitlement.WithDisplayName(fmt.Sprintf("%s Resource", resource.DisplayName)),
 		sdkEntitlement.WithDescription(fmt.Sprintf("Has %s access on the %s resource", accessType, resource.DisplayName)),
 	)
 }
 
-func newResourceBuilder(client *client.Client) *resourceBuilder {
-	return &resourceBuilder{client: client}
+func newResourceBuilder(client *client.Client, externalSyncMode bool) *resourceBuilder {
+	return &resourceBuilder{client: client, externalSyncMode: externalSyncMode}
 }

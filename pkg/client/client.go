@@ -96,15 +96,15 @@ const GrantedEntityTypeUserAccount = "USER_ACCOUNT"
 const GrantedEntityTypeServiceAccount = "SERVICE_ACCOUNT"
 const GrantedEntityTypeGroup = "GROUP"
 
-var grantedEntityTypeUserAccountFilter = []string{GrantedEntityTypeUserAccount, GrantedEntityTypeGroup}
+var grantedEntityTypeUserAccountFilter = []string{GrantedEntityTypeUserAccount}
 
-type UserTypeToken struct {
-	UserType string `json:"user_type"`
-	Token    string `json:"token"`
+type GrantedEntityTypeToken struct {
+	GrantedEntityType string `json:"granted_entity_type"`
+	Token             string `json:"token"`
 }
 
-func (utt *UserTypeToken) Marshal() (string, error) {
-	data, err := json.Marshal(utt)
+func (gt *GrantedEntityTypeToken) Marshal() (string, error) {
+	data, err := json.Marshal(gt)
 	if err != nil {
 		return "", err
 	}
@@ -112,14 +112,14 @@ func (utt *UserTypeToken) Marshal() (string, error) {
 }
 
 type Client struct {
-	baseHttpClient *uhttp.BaseHttpClient
-	BearerToken    string
-	BaseUrl        *url.URL
-	resourceIDs    []string
-	resourceTags   []*ResourceTag
-	resourceTypes  []string
-	userTypeFilter []string
-	resourceIdSet  mapset.Set[string]
+	baseHttpClient          *uhttp.BaseHttpClient
+	BearerToken             string
+	BaseUrl                 *url.URL
+	resourceIDs             []string
+	resourceTags            []*ResourceTag
+	resourceTypes           []string
+	grantedEntityTypeFilter []string
+	resourceIdSet           mapset.Set[string]
 }
 
 func New(
@@ -134,6 +134,7 @@ func New(
 	resourceTypes []string,
 	syncIdentities bool,
 	syncServiceAccounts bool,
+	externalSyncMode bool,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -152,22 +153,25 @@ func New(
 		return nil, err
 	}
 
-	userTypeFilter := grantedEntityTypeUserAccountFilter
+	grantedEntityTypeFilter := grantedEntityTypeUserAccountFilter
 	if syncServiceAccounts {
-		userTypeFilter = append(userTypeFilter, GrantedEntityTypeServiceAccount)
+		grantedEntityTypeFilter = append(grantedEntityTypeFilter, GrantedEntityTypeServiceAccount)
 	}
 	if syncIdentities {
-		userTypeFilter = append(userTypeFilter, GrantedEntityTypeIdentity)
+		grantedEntityTypeFilter = append(grantedEntityTypeFilter, GrantedEntityTypeIdentity)
+	}
+	if externalSyncMode {
+		grantedEntityTypeFilter = append(grantedEntityTypeFilter, GrantedEntityTypeGroup)
 	}
 
 	client := Client{
-		baseHttpClient: wrapper,
-		BaseUrl:        endpointUrl,
-		resourceIDs:    resourceIDs,
-		resourceTags:   resourceTags,
-		resourceTypes:  resourceTypes,
-		userTypeFilter: userTypeFilter,
-		resourceIdSet:  mapset.NewSet[string](),
+		baseHttpClient:          wrapper,
+		BaseUrl:                 endpointUrl,
+		resourceIDs:             resourceIDs,
+		resourceTags:            resourceTags,
+		resourceTypes:           resourceTypes,
+		grantedEntityTypeFilter: grantedEntityTypeFilter,
+		resourceIdSet:           mapset.NewSet[string](),
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -249,10 +253,10 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				}
 				c.resourceIdSet.Add(accessibleResource.Id)
 
-				for _, ut := range c.userTypeFilter {
-					userTypeWithToken := &UserTypeToken{
-						UserType: ut,
-						Token:    DefaultEndCursor,
+				for _, gt := range c.grantedEntityTypeFilter {
+					userTypeWithToken := &GrantedEntityTypeToken{
+						GrantedEntityType: gt,
+						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -273,7 +277,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 		}
 		return &UsersWithAccessQueryResponse{}, resourceNextPageMarshal, nil
 	case ListUsersResourceTypeResourceID:
-		ut, err := parseUserTypeToken(page)
+		ut, err := parseGrantedEntityTypeToken(page)
 		if err != nil {
 			return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w, page: %s", err, page)
 		}
@@ -283,7 +287,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 			"after": ut.Token,
 			"filterBy": map[string]interface{}{
 				"grantedEntityType": map[string]interface{}{
-					"equals": ut.UserType,
+					"equals": ut.GrantedEntityType,
 				},
 				"resource": map[string]interface{}{
 					"id": map[string]interface{}{
@@ -319,7 +323,7 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				zap.String("page_token", pToken.Token),
 				zap.String("page", page),
 				zap.String("user_token", ut.Token),
-				zap.String("user_type", ut.UserType),
+				zap.String("user_type", ut.GrantedEntityType),
 				zap.Error(err))
 			return nil, "", fmt.Errorf("wiz-connector: failed to list users with access to resources: %w", err)
 		}
@@ -427,21 +431,21 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 
 func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
 	l := ctxzap.Extract(ctx)
-	bag, page, err := c.getUserTypeToken(pToken.Token)
+	bag, page, err := c.getGrantedEntityTypeToken(pToken.Token)
 	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
+		return nil, "", fmt.Errorf("wiz-connector: error getting granted entity type page token: %w", err)
 	}
-	ut, err := parseUserTypeToken(page)
+	gt, err := parseGrantedEntityTypeToken(page)
 	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w", err)
+		return nil, "", fmt.Errorf("wiz-connector: error parsing granted entity type page token: %w", err)
 	}
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
-		"after": ut.Token,
+		"after": gt.Token,
 		"filterBy": map[string]interface{}{
 			"grantedEntityType": map[string]interface{}{
-				"equals": ut.UserType,
+				"equals": gt.GrantedEntityType,
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
@@ -475,20 +479,20 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 		l.Error("wiz-connector: failed to list resources permissions",
 			zap.String("page_token", pToken.Token),
 			zap.String("page", page),
-			zap.String("user_token", ut.Token),
-			zap.String("user_type", ut.UserType),
+			zap.String("granted_entity_token", gt.Token),
+			zap.String("granted_entity_type", gt.GrantedEntityType),
 			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources permissions: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		ut.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
-		userTypeTokenStr, err := ut.Marshal()
+		gt.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		grantedEntityTypeTokenStr, err := gt.Marshal()
 		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: error converting user type page token: %w", err)
+			return nil, "", fmt.Errorf("wiz-connector: error converting granted entity type page token: %w", err)
 		}
-		err = bag.Next(userTypeTokenStr)
+		err = bag.Next(grantedEntityTypeTokenStr)
 		if err != nil {
 			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 		}
@@ -508,21 +512,21 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 
 func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, resourceId string, pToken *pagination.Token) (*ResourcePermissions, string, error) {
 	l := ctxzap.Extract(ctx)
-	bag, page, err := c.getUserTypeToken(pToken.Token)
+	bag, page, err := c.getGrantedEntityTypeToken(pToken.Token)
 	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: error getting user type page token: %w", err)
+		return nil, "", fmt.Errorf("wiz-connector: error getting granted entity type page token: %w", err)
 	}
-	ut, err := parseUserTypeToken(page)
+	gt, err := parseGrantedEntityTypeToken(page)
 	if err != nil {
-		return nil, "", fmt.Errorf("wiz-connector: error parsing user type page token: %w", err)
+		return nil, "", fmt.Errorf("wiz-connector: error parsing granted entity type page token: %w", err)
 	}
 
 	variables := map[string]interface{}{
 		"first": DefaultPageSize,
-		"after": ut.Token,
+		"after": gt.Token,
 		"filterBy": map[string]interface{}{
 			"grantedEntityType": map[string]interface{}{
-				"equals": ut.UserType,
+				"equals": gt.GrantedEntityType,
 			},
 			"resource": map[string]interface{}{
 				"id": map[string]interface{}{
@@ -556,20 +560,20 @@ func (c *Client) ListResourcePermissionEffectiveAccess(ctx context.Context, reso
 		l.Error("wiz-connector: failed to list resource permissions effective access",
 			zap.String("page_token", pToken.Token),
 			zap.String("page", page),
-			zap.String("user_token", ut.Token),
-			zap.String("user_type", ut.UserType),
+			zap.String("granted_entity_token", gt.Token),
+			zap.String("granted_entity_type", gt.GrantedEntityType),
 			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resource permissions effective access: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if res.Data.EntityEffectiveAccessEntries.PageInfo.HasNextPage {
-		ut.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
-		userTypeTokenStr, err := ut.Marshal()
+		gt.Token = res.Data.EntityEffectiveAccessEntries.PageInfo.EndCursor
+		grantedEntityTypeTokenStr, err := gt.Marshal()
 		if err != nil {
-			return nil, "", fmt.Errorf("wiz-connector: error converting user type page token: %w", err)
+			return nil, "", fmt.Errorf("wiz-connector: error converting granted entity type page token: %w", err)
 		}
-		err = bag.Next(userTypeTokenStr)
+		err = bag.Next(grantedEntityTypeTokenStr)
 		if err != nil {
 			return nil, "", fmt.Errorf("wiz-connector: failed to fetch bag.Next: %w", err)
 		}
@@ -601,10 +605,10 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 	if b.Current() == nil {
 		if len(resourceIDs) != 0 {
 			for _, resourceID := range resourceIDs {
-				for _, ut := range c.userTypeFilter {
-					userTypeWithToken := &UserTypeToken{
-						UserType: ut,
-						Token:    DefaultEndCursor,
+				for _, ut := range c.grantedEntityTypeFilter {
+					userTypeWithToken := &GrantedEntityTypeToken{
+						GrantedEntityType: ut,
+						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -630,16 +634,16 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 	return b, page, nil
 }
 
-func parseUserTypeToken(token string) (*UserTypeToken, error) {
-	utt := &UserTypeToken{}
-	err := json.Unmarshal([]byte(token), &utt)
+func parseGrantedEntityTypeToken(token string) (*GrantedEntityTypeToken, error) {
+	gtt := &GrantedEntityTypeToken{}
+	err := json.Unmarshal([]byte(token), &gtt)
 	if err != nil {
 		return nil, err
 	}
-	return utt, nil
+	return gtt, nil
 }
 
-func (c *Client) getUserTypeToken(token string) (*pagination.Bag, string, error) {
+func (c *Client) getGrantedEntityTypeToken(token string) (*pagination.Bag, string, error) {
 	b := &pagination.Bag{}
 	err := b.Unmarshal(token)
 	if err != nil {
@@ -647,12 +651,12 @@ func (c *Client) getUserTypeToken(token string) (*pagination.Bag, string, error)
 	}
 
 	if b.Current() == nil {
-		for _, ut := range c.userTypeFilter {
-			userTypeWithToken := &UserTypeToken{
-				UserType: ut,
-				Token:    DefaultEndCursor,
+		for _, gt := range c.grantedEntityTypeFilter {
+			grantedEntityTypeWithToken := &GrantedEntityTypeToken{
+				GrantedEntityType: gt,
+				Token:             DefaultEndCursor,
 			}
-			tokenStr, err := userTypeWithToken.Marshal()
+			tokenStr, err := grantedEntityTypeWithToken.Marshal()
 			if err != nil {
 				return nil, "", err
 			}
