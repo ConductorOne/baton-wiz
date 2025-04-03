@@ -28,6 +28,7 @@ type Config struct {
 	ResourceTypes       []string
 	SyncIdentities      bool
 	SyncServiceAccounts bool
+	ExternalSyncMode    bool
 }
 
 type Connector struct {
@@ -37,10 +38,13 @@ type Connector struct {
 
 // ResourceSyncers returns a ResourceSyncer for each resource type that should be synced from the upstream service.
 func (d *Connector) ResourceSyncers(ctx context.Context) []connectorbuilder.ResourceSyncer {
-	return []connectorbuilder.ResourceSyncer{
-		newUserBuilder(d.Client),
-		newResourceBuilder(d.Client),
+	resourceSyncers := []connectorbuilder.ResourceSyncer{
+		newResourceBuilder(d.Client, d.Config.ExternalSyncMode),
 	}
+	if !d.Config.ExternalSyncMode {
+		resourceSyncers = append(resourceSyncers, newUserBuilder(d.Client))
+	}
+	return resourceSyncers
 }
 
 // Asset takes an input AssetRef and attempts to fetch it using the connector's authenticated http client
@@ -96,6 +100,7 @@ func New(ctx context.Context, config *Config) (*Connector, error) {
 		config.ResourceTypes,
 		config.SyncIdentities,
 		config.SyncServiceAccounts,
+		config.ExternalSyncMode,
 	)
 	if err != nil {
 		l.Error("wiz-connector: failed to read token response", zap.Error(err))

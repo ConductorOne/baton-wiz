@@ -15,7 +15,8 @@ import (
 )
 
 type resourceBuilder struct {
-	client *client.Client
+	client           *client.Client
+	externalSyncMode bool
 }
 
 func (o *resourceBuilder) ResourceType(ctx context.Context) *v2.ResourceType {
@@ -72,40 +73,61 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 
 	nodes := resourcePermissions.Data.EntityEffectiveAccessEntries.Nodes
 	for _, n := range nodes {
-		user := n.GrantedEntity
-		if user == nil {
+		grantedEntity := n.GrantedEntity
+		if grantedEntity == nil {
 			continue
 		}
 
-		primaryEmail := user.Properties.PrimaryEmail
-		if primaryEmail == "" {
-			primaryEmail = user.Properties.Email
-		}
-		userId := primaryEmail
-		if userId == "" {
-			userId = user.Id
+		var resourceType string
+		if grantedEntity.Type == client.GrantedEntityTypeGroup {
+			resourceType = groupResourceType.Id
+		} else {
+			resourceType = userResourceType.Id
 		}
 
 		principal := &v2.ResourceId{
-			ResourceType: userResourceType.Id,
-			Resource:     userId,
+			ResourceType: resourceType,
+			Resource:     grantedEntity.Id,
+		}
+
+		grantOpts := make([]sdkGrant.GrantOption, 0)
+		if o.externalSyncMode {
+			// TODO(lauren) do we want to exclude entities with no external id when in this mode?
+			// If so, consider adding a filter to graphql query
+			if grantedEntity.Properties.ExternalId == "" {
+				continue
+			}
+			grantOpts = append(grantOpts, sdkGrant.WithAnnotation(&v2.ExternalResourceMatchID{
+				Id: grantedEntity.Properties.ExternalId,
+			}))
+		} else {
+			if grantedEntity.Properties.PrimaryEmail != "" {
+				principal.Resource = grantedEntity.Properties.PrimaryEmail
+			} else if grantedEntity.Properties.Email != "" {
+				principal.Resource = grantedEntity.Properties.Email
+			}
 		}
 
 		for _, p := range n.Permissions {
-			rv = append(rv, sdkGrant.NewGrant(resource, p, principal))
+			rv = append(rv, sdkGrant.NewGrant(resource, p, principal, grantOpts...))
 		}
 	}
+
 	return rv, nextPageToken, nil, nil
 }
 
 func (o *resourceBuilder) resourceEntitlement(resource *v2.Resource, accessType string) *v2.Entitlement {
+	grantableTo := []*v2.ResourceType{userResourceType}
+	if o.externalSyncMode {
+		grantableTo = append(grantableTo, groupResourceType)
+	}
 	return sdkEntitlement.NewPermissionEntitlement(resource, accessType,
-		sdkEntitlement.WithGrantableTo(userResourceType),
+		sdkEntitlement.WithGrantableTo(grantableTo...),
 		sdkEntitlement.WithDisplayName(fmt.Sprintf("%s Resource", resource.DisplayName)),
 		sdkEntitlement.WithDescription(fmt.Sprintf("Has %s access on the %s resource", accessType, resource.DisplayName)),
 	)
 }
 
-func newResourceBuilder(client *client.Client) *resourceBuilder {
-	return &resourceBuilder{client: client}
+func newResourceBuilder(client *client.Client, externalSyncMode bool) *resourceBuilder {
+	return &resourceBuilder{client: client, externalSyncMode: externalSyncMode}
 }
