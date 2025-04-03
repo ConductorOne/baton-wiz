@@ -85,7 +85,6 @@ func (o *resourceBuilder) Grants(ctx context.Context, resource *v2.Resource, pTo
 			resourceType = userResourceType.Id
 		}
 
-		// TODO(lauren) Check if resource ID should be grantedEntity.Properties.ExternalId when in externalSyncMode
 		principal := &v2.ResourceId{
 			ResourceType: resourceType,
 			Resource:     grantedEntity.Id,
