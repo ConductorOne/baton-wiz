@@ -66,28 +66,33 @@ Usage:
 Available Commands:
   capabilities       Get connector capabilities
   completion         Generate the autocompletion script for the specified shell
+  config             Get the connector config schema
   help               Help about any command
 
 Flags:
-      --audience string              The audience used to authenticate with Wiz ($BATON_AUDIENCE) (default "wiz-api")
-      --auth-url string              required: The auth url used to authenticate with Wiz ($BATON_AUTH_URL)
-      --client-id string             The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)
-      --client-secret string         The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)
-      --endpoint-url string          required: The endpoint url used to authenticate with Wiz ($BATON_ENDPOINT_URL)
-  -f, --file string                  The path to the c1z file to sync with ($BATON_FILE) (default "sync.c1z")
-  -h, --help                         help for baton-wiz
-      --log-format string            The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
-      --log-level string             The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
-  -p, --provisioning                 This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
-      --resource-ids strings         The resource ids to sync ($BATON_RESOURCE_IDS)
-      --skip-full-sync               This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
-      --sync-identities              Enable if wiz identities should be synced ($BATON_SYNC_IDENTITIES)
-      --tags string                  The tags on resources to sync ($BATON_TAGS)
-      --ticketing                    This must be set to enable ticketing support ($BATON_TICKETING)
-  -v, --version                      version for baton-wiz
-      --wiz-client-id string         required: The client ID used to authenticate with Wiz ($BATON_WIZ_CLIENT_ID)
-      --wiz-client-secret string     required: The client secret used to authenticate with Wiz ($BATON_WIZ_CLIENT_SECRET)
-      --wiz-resource-types strings   The wiz resource-types to sync ($BATON_WIZ_RESOURCE_TYPES)
+      --audience string                                  The audience used to authenticate with Wiz ($BATON_AUDIENCE) (default "wiz-api")
+      --auth-url string                                  required: The auth url used to authenticate with Wiz ($BATON_AUTH_URL)
+      --client-id string                                 The client ID used to authenticate with ConductorOne ($BATON_CLIENT_ID)
+      --client-secret string                             The client secret used to authenticate with ConductorOne ($BATON_CLIENT_SECRET)
+      --endpoint-url string                              required: The endpoint url used to authenticate with Wiz ($BATON_ENDPOINT_URL)
+      --external-resource-c1z string                     The path to the c1z file to sync external baton resources with ($BATON_EXTERNAL_RESOURCE_C1Z)
+      --external-resource-entitlement-id-filter string   The entitlement that external users, groups must have access to sync external baton resources ($BATON_EXTERNAL_RESOURCE_ENTITLEMENT_ID_FILTER)
+      --external-sync-mode                               Enable external sync mode ($BATON_EXTERNAL_SYNC_MODE)
+  -f, --file string                                      The path to the c1z file to sync with ($BATON_FILE) (default "sync.c1z")
+  -h, --help                                             help for baton-wiz
+      --log-format string                                The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
+      --log-level string                                 The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
+      --otel-collector-endpoint string                   The endpoint of the OpenTelemetry collector to send observability data to (used for both tracing and logging if specific endpoints are not provided) ($BATON_OTEL_COLLECTOR_ENDPOINT)
+  -p, --provisioning                                     This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
+      --resource-ids strings                             The resource ids to sync ($BATON_RESOURCE_IDS)
+      --skip-full-sync                                   This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
+      --sync-identities                                  Enable if wiz identities should be synced ($BATON_SYNC_IDENTITIES)
+      --sync-service-accounts                            Enable if wiz service accounts should be synced ($BATON_SYNC_SERVICE_ACCOUNTS)
+      --tags string                                      The tags on resources to sync ($BATON_TAGS)
+      --ticketing                                        This must be set to enable ticketing support ($BATON_TICKETING)
+  -v, --version                                          version for baton-wiz
+      --wiz-client-id string                             required: The client ID used to authenticate with Wiz ($BATON_WIZ_CLIENT_ID)
+      --wiz-client-secret string                         required: The client secret used to authenticate with Wiz ($BATON_WIZ_CLIENT_SECRET)
+      --wiz-resource-types strings                       The wiz resource-types to sync ($BATON_WIZ_RESOURCE_TYPES)
 
 Use "baton-wiz [command] --help" for more information about a command.
-```
