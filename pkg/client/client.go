@@ -120,6 +120,7 @@ type Client struct {
 	resourceTypes           []string
 	grantedEntityTypeFilter []string
 	resourceIdSet           mapset.Set[string]
+	projectId               string
 }
 
 func New(
@@ -135,6 +136,7 @@ func New(
 	syncIdentities bool,
 	syncServiceAccounts bool,
 	externalSyncMode bool,
+	projectId string,
 ) (*Client, error) {
 	l := ctxzap.Extract(ctx)
 	httpClient, err := uhttp.NewClient(ctx, uhttp.WithLogger(true, l))
@@ -164,6 +166,10 @@ func New(
 		grantedEntityTypeFilter = append(grantedEntityTypeFilter, GrantedEntityTypeGroup)
 	}
 
+	if projectId == "" {
+		projectId = "*"
+	}
+
 	client := Client{
 		baseHttpClient:          wrapper,
 		BaseUrl:                 endpointUrl,
@@ -172,6 +178,7 @@ func New(
 		resourceTypes:           resourceTypes,
 		grantedEntityTypeFilter: grantedEntityTypeFilter,
 		resourceIdSet:           mapset.NewSet[string](),
+		projectId:               projectId,
 	}
 
 	err = client.Authorize(ctx, authUrl, clientId, clientSecret, audience)
@@ -388,7 +395,7 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	variables := map[string]interface{}{
 		"first":     DefaultPageSize,
 		"after":     page,
-		"projectId": "*",
+		"projectId": c.projectId,
 		"query": map[string]interface{}{
 			"type":  resourceTypes,
 			"where": whereClause,
