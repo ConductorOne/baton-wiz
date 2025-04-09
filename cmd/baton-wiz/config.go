@@ -16,8 +16,12 @@ var (
 	syncIdentities    = field.BoolField("sync-identities", field.WithDescription("Enable if wiz identities should be synced"))
 	syncServiceUsers  = field.BoolField("sync-service-accounts", field.WithDescription("Enable if wiz service accounts should be synced"))
 	externalSyncMode  = field.BoolField("external-sync-mode", field.WithDescription("Enable external sync mode"))
+	projectID         = field.StringField("project-id",
+		field.WithDescription("Scope the resource graph query to a specific project. Required if service account does not have access to all projects."))
 
-	configurationFields = []field.SchemaField{clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities, syncServiceUsers, externalSyncMode}
+	configurationFields = []field.SchemaField{
+		clientIDField, clientSecretField, endpointURL, authURL, audience, resourceIDs, tags, resourceTypes, syncIdentities, syncServiceUsers, externalSyncMode, projectID,
+	}
 )
 
 var configRelations = []field.SchemaFieldRelationship{

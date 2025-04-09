@@ -29,6 +29,7 @@ type Config struct {
 	SyncIdentities      bool
 	SyncServiceAccounts bool
 	ExternalSyncMode    bool
+	ProjectID           string
 }
 
 type Connector struct {
@@ -101,7 +102,7 @@ func New(ctx context.Context, config *Config) (*Connector, error) {
 		config.SyncIdentities,
 		config.SyncServiceAccounts,
 		config.ExternalSyncMode,
-	)
+		config.ProjectID)
 	if err != nil {
 		l.Error("wiz-connector: failed to read token response", zap.Error(err))
 		return nil, err
