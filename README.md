@@ -83,6 +83,7 @@ Flags:
       --log-format string                                The output format for logs: json, console ($BATON_LOG_FORMAT) (default "json")
       --log-level string                                 The log level: debug, info, warn, error ($BATON_LOG_LEVEL) (default "info")
       --otel-collector-endpoint string                   The endpoint of the OpenTelemetry collector to send observability data to (used for both tracing and logging if specific endpoints are not provided) ($BATON_OTEL_COLLECTOR_ENDPOINT)
+      --project-id string                                Scope the resource graph query to a specific project. Required if service account does not have access to all projects. ($BATON_PROJECT_ID)
   -p, --provisioning                                     This must be set in order for provisioning actions to be enabled ($BATON_PROVISIONING)
       --resource-ids strings                             The resource ids to sync ($BATON_RESOURCE_IDS)
       --skip-full-sync                                   This must be set to skip a full sync ($BATON_SKIP_FULL_SYNC)
