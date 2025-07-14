@@ -59,7 +59,7 @@ jobs:
       BATON_AUTH_URL: 'https://auth.app.wiz.io/oauth/token'
       BATON_ENDPOINT_URL: 'https://api.us83.app.wiz.io/graphql'
       BATON_TAGS: ${{ secrets.BATON_TAGS }}
-      CONNECTOR_ENTITLEMENT: 'wiz_query_resource_type:911d5b8b-1a17-5af0-b1b6-6cca33432c22:s3:*'
+      CONNECTOR_ENTITLEMENT: 'wiz_query_resource_type:01530c9e-5efd-59fe-8a39-f92061a56628:s3:*'
       CONNECTOR_PRINCIPAL: 'lauren.leach@conductorone.com'
     steps:
       - name: Install Go
