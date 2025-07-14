@@ -263,7 +263,6 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				for _, gt := range c.grantedEntityTypeFilter {
 					userTypeWithToken := &GrantedEntityTypeToken{
 						GrantedEntityType: gt,
-						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -461,6 +460,7 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 			},
 		},
 	}
+
 	payload := map[string]interface{}{
 		"query":     resourcePermissionQuery,
 		"variables": variables,
@@ -615,7 +615,6 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 				for _, ut := range c.grantedEntityTypeFilter {
 					userTypeWithToken := &GrantedEntityTypeToken{
 						GrantedEntityType: ut,
-						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -630,7 +629,6 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 			}
 		} else {
 			b.Push(pagination.PageState{
-				Token:          DefaultEndCursor,
 				ResourceTypeID: ListUsersResourceTypeResourceTag,
 			})
 		}
@@ -661,7 +659,6 @@ func (c *Client) getGrantedEntityTypeToken(token string) (*pagination.Bag, strin
 		for _, gt := range c.grantedEntityTypeFilter {
 			grantedEntityTypeWithToken := &GrantedEntityTypeToken{
 				GrantedEntityType: gt,
-				Token:             DefaultEndCursor,
 			}
 			tokenStr, err := grantedEntityTypeWithToken.Marshal()
 			if err != nil {
