@@ -89,7 +89,6 @@ const resourceEffectiveAccessQuery = `query CloudEntitlementsTable($after: Strin
 }`
 
 const DefaultPageSize = 500
-const DefaultEndCursor = "{{endCursor}}"
 
 const GrantedEntityTypeIdentity = "IDENTITY"
 const GrantedEntityTypeUserAccount = "USER_ACCOUNT"
@@ -263,7 +262,6 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 				for _, gt := range c.grantedEntityTypeFilter {
 					userTypeWithToken := &GrantedEntityTypeToken{
 						GrantedEntityType: gt,
-						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -366,7 +364,6 @@ func (c *Client) ListUsersWithAccessToResources(ctx context.Context, pToken *pag
 
 func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*ResourceResponse, string, error) {
 	l := ctxzap.Extract(ctx)
-	page := getEndCursor(pToken.Token)
 
 	whereClause := make(map[string]interface{}, 0)
 	if len(c.resourceIDs) != 0 {
@@ -394,7 +391,7 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 
 	variables := map[string]interface{}{
 		"first":     DefaultPageSize,
-		"after":     page,
+		"after":     pToken.Token,
 		"projectId": c.projectId,
 		"query": map[string]interface{}{
 			"type":  resourceTypes,
@@ -422,7 +419,6 @@ func (c *Client) ListResources(ctx context.Context, pToken *pagination.Token) (*
 	if err != nil {
 		l.Error("wiz-connector: failed to list resources",
 			zap.String("token", pToken.Token),
-			zap.String("page", page),
 			zap.Error(err))
 		return nil, "", fmt.Errorf("wiz-connector: failed to list resources: %w", err)
 	}
@@ -461,6 +457,7 @@ func (c *Client) ListResourcePermissions(ctx context.Context, resourceId string,
 			},
 		},
 	}
+
 	payload := map[string]interface{}{
 		"query":     resourcePermissionQuery,
 		"variables": variables,
@@ -615,7 +612,6 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 				for _, ut := range c.grantedEntityTypeFilter {
 					userTypeWithToken := &GrantedEntityTypeToken{
 						GrantedEntityType: ut,
-						Token:             DefaultEndCursor,
 					}
 					tokenStr, err := userTypeWithToken.Marshal()
 					if err != nil {
@@ -630,7 +626,6 @@ func (c *Client) parseUserPageToken(token string, resourceIDs []string) (*pagina
 			}
 		} else {
 			b.Push(pagination.PageState{
-				Token:          DefaultEndCursor,
 				ResourceTypeID: ListUsersResourceTypeResourceTag,
 			})
 		}
@@ -661,7 +656,6 @@ func (c *Client) getGrantedEntityTypeToken(token string) (*pagination.Bag, strin
 		for _, gt := range c.grantedEntityTypeFilter {
 			grantedEntityTypeWithToken := &GrantedEntityTypeToken{
 				GrantedEntityType: gt,
-				Token:             DefaultEndCursor,
 			}
 			tokenStr, err := grantedEntityTypeWithToken.Marshal()
 			if err != nil {
@@ -676,11 +670,4 @@ func (c *Client) getGrantedEntityTypeToken(token string) (*pagination.Bag, strin
 	page := b.PageToken()
 
 	return b, page, nil
-}
-
-func getEndCursor(token string) string {
-	if token == "" {
-		return DefaultEndCursor
-	}
-	return token
 }
